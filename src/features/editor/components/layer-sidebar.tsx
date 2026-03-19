@@ -26,7 +26,7 @@ const addLayerOptions = [
     label: (
       <span className={s.menuButton}>
         <ImageSquare size={14} weight="regular" />
-        Add image
+        Image
       </span>
     ),
     value: "image",
@@ -35,7 +35,7 @@ const addLayerOptions = [
     label: (
       <span className={s.menuButton}>
         <Sparkle size={14} weight="regular" />
-        Add dithering
+        Dithering
       </span>
     ),
     value: "dithering",
