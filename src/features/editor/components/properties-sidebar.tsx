@@ -3,6 +3,7 @@
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { getLayerDefinition } from "@/features/editor/config/layer-registry"
+import { cn } from "@/shared/lib/cn"
 import type {
   BlendMode,
   EditorAsset,
@@ -20,6 +21,7 @@ import { Toggle } from "@/shared/ui/toggle"
 import { Typography } from "@/shared/ui/typography"
 import { XYPad } from "@/shared/ui/xy-pad"
 import { useAssetStore } from "@/store/assetStore"
+import { useEditorStore } from "@/store/editorStore"
 import { useLayerStore } from "@/store/layerStore"
 import s from "./properties-sidebar.module.css"
 
@@ -404,6 +406,7 @@ export function PropertiesSidebar() {
   const [expandedParamGroups, setExpandedParamGroups] = useState<Record<string, boolean>>({})
   const [panelHeight, setPanelHeight] = useState<number | null>(null)
   const viewResizeObserverRef = useRef<ResizeObserver | null>(null)
+  const rightSidebarVisible = useEditorStore((state) => state.sidebars.right)
   const selectedLayerId = useLayerStore((state) => state.selectedLayerId)
   const selectedLayer = useLayerStore((state) =>
     selectedLayerId
@@ -517,7 +520,7 @@ export function PropertiesSidebar() {
   }, [])
 
   return (
-    <aside className={s.root}>
+    <aside className={cn(s.root, !rightSidebarVisible && s.rootHidden)}>
       <div aria-hidden="true" className={s.measureWrap}>
         <div className={s.measureView} ref={bindMeasuredView}>
           {selectedLayer ? (

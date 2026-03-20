@@ -9,9 +9,12 @@ import { DEFAULT_CANVAS_SIZE } from "@/features/editor/utils/layers"
 export interface EditorStoreState extends EditorStateSnapshot {}
 
 export interface EditorStoreActions {
+  enterImmersiveCanvas: () => void
+  exitImmersiveCanvas: () => void
   resetView: () => void
   setCanvasSize: (width: number, height: number) => void
   setFps: (fps: number) => void
+  setImmersiveCanvas: (immersiveCanvas: boolean) => void
   setOutputSize: (width: number, height: number) => void
   setPan: (x: number, y: number) => void
   setRenderScale: (scale: RenderScale) => void
@@ -38,6 +41,7 @@ function clampCanvasDimension(value: number): number {
 export const useEditorStore = create<EditorStore>((set) => ({
   canvasSize: DEFAULT_CANVAS_SIZE,
   fps: 0,
+  immersiveCanvas: false,
   outputSize: DEFAULT_CANVAS_SIZE,
   panOffset: { x: 0, y: 0 },
   renderScale: 1,
@@ -104,8 +108,37 @@ export const useEditorStore = create<EditorStore>((set) => ({
     })
   },
 
+  setImmersiveCanvas: (immersiveCanvas) => {
+    set({
+      immersiveCanvas,
+    })
+  },
+
+  enterImmersiveCanvas: () => {
+    set((state) => ({
+      immersiveCanvas: true,
+      sidebars: {
+        ...state.sidebars,
+        left: false,
+        right: false,
+      },
+    }))
+  },
+
+  exitImmersiveCanvas: () => {
+    set((state) => ({
+      immersiveCanvas: false,
+      sidebars: {
+        ...state.sidebars,
+        left: true,
+        right: true,
+      },
+    }))
+  },
+
   setSidebarOpen: (side, open) => {
     set((state) => ({
+      immersiveCanvas: open ? false : state.immersiveCanvas,
       sidebars: {
         ...state.sidebars,
         [side]: open,
@@ -115,6 +148,7 @@ export const useEditorStore = create<EditorStore>((set) => ({
 
   toggleSidebar: (side) => {
     set((state) => ({
+      immersiveCanvas: state.sidebars[side] ? state.immersiveCanvas : false,
       sidebars: {
         ...state.sidebars,
         [side]: !state.sidebars[side],

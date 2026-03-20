@@ -7,6 +7,7 @@ import {
   EyeSlash,
   ImageSquare,
   Plus,
+  SidebarSimpleIcon,
   Sparkle,
 } from "@phosphor-icons/react"
 import { useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react"
@@ -17,6 +18,7 @@ import { IconButton } from "@/shared/ui/icon-button"
 import { Select } from "@/shared/ui/select"
 import { Typography } from "@/shared/ui/typography"
 import { useAssetStore } from "@/store/assetStore"
+import { useEditorStore } from "@/store/editorStore"
 import { useLayerStore } from "@/store/layerStore"
 import s from "./layer-sidebar.module.css"
 
@@ -110,6 +112,8 @@ export function LayerSidebar() {
   const setLayerVisibility = useLayerStore((state) => state.setLayerVisibility)
   const assets = useAssetStore((state) => state.assets)
   const loadAsset = useAssetStore((state) => state.loadAsset)
+  const leftSidebarVisible = useEditorStore((state) => state.sidebars.left)
+  const enterImmersiveCanvas = useEditorStore((state) => state.enterImmersiveCanvas)
 
   const assetsById = useMemo(
     () => new Map(assets.map((asset) => [asset.id, asset])),
@@ -215,7 +219,7 @@ export function LayerSidebar() {
   }
 
   return (
-    <aside className={s.root}>
+    <aside className={cn(s.root, !leftSidebarVisible && s.rootHidden)}>
       <input
         accept="image/png,image/jpeg,image/webp,image/gif"
         className="hidden"
@@ -236,18 +240,28 @@ export function LayerSidebar() {
           <Typography className={s.title} tone="secondary" variant="overline">
             Layers
           </Typography>
-          <Select
-            key={addLayerSelectKey}
-            className={s.addLayerSelect ?? ""}
-            iconClassName={s.addLayerIcon ?? ""}
-            onValueChange={(value) => handleAddLayer(value as AddLayerAction)}
-            options={addLayerOptions}
-            placeholder={<Plus size={14} weight="bold" />}
-            popupClassName={s.addLayerPopup ?? ""}
-            triggerAriaLabel="Add layer"
-            triggerClassName={s.addLayerTrigger ?? ""}
-            valueClassName={s.addLayerValue ?? ""}
-          />
+          <div className={s.headerActions}>
+            <IconButton
+              aria-label="Enter immersive canvas mode"
+              className={s.immersiveButton}
+              onClick={enterImmersiveCanvas}
+              variant="ghost"
+            >
+              <SidebarSimpleIcon size={14} weight="regular" />
+            </IconButton>
+            <Select
+              key={addLayerSelectKey}
+              className={s.addLayerSelect ?? ""}
+              iconClassName={s.addLayerIcon ?? ""}
+              onValueChange={(value) => handleAddLayer(value as AddLayerAction)}
+              options={addLayerOptions}
+              placeholder={<Plus size={14} weight="bold" />}
+              popupClassName={s.addLayerPopup ?? ""}
+              triggerAriaLabel="Add layer"
+              triggerClassName={s.addLayerTrigger ?? ""}
+              valueClassName={s.addLayerValue ?? ""}
+            />
+          </div>
         </div>
 
         <ul className={s.scrollArea}>

@@ -242,6 +242,7 @@ export type WebGPUStatus = "idle" | "unsupported" | "initializing" | "ready" | "
 export interface EditorStateSnapshot {
   canvasSize: Size
   fps: number
+  immersiveCanvas: boolean
   outputSize: Size
   panOffset: Vector2
   renderScale: RenderScale
