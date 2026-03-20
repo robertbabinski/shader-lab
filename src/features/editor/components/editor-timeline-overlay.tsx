@@ -1,7 +1,8 @@
 "use client"
 
+import { Select as BaseSelect } from "@base-ui/react/select"
 import {
-  ArrowClockwiseIcon,
+  BezierCurveIcon,
   CaretDownIcon,
   CaretUpIcon,
   PauseIcon,
@@ -30,7 +31,6 @@ import { TIMELINE_INTERPOLATIONS } from "@/features/editor/types"
 import { cn } from "@/shared/lib/cn"
 import { GlassPanel } from "@/shared/ui/glass-panel"
 import { IconButton } from "@/shared/ui/icon-button"
-import { Select } from "@/shared/ui/select"
 import { Typography } from "@/shared/ui/typography"
 import { useEditorStore, useLayerStore, useTimelineStore } from "@/store"
 import {
@@ -68,7 +68,6 @@ const COLLAPSED_SHELL_HEIGHT = 52
 const COLLAPSED_SHELL_WIDTH = 580
 const EXPANDED_SHELL_HEIGHT = 380
 const EXPANDED_SHELL_WIDTH = 820
-const NO_EASING_VALUE = "__none__"
 const INTERPOLATION_OPTIONS = TIMELINE_INTERPOLATIONS.map((value) => ({
   label: value[0]?.toUpperCase() + value.slice(1),
   value,
@@ -313,7 +312,6 @@ function TimelineTransport({
           onClick={onToggleLoop}
           variant={loop ? "active" : "default"}
         >
-          <ArrowClockwiseIcon size={14} weight="bold" />
           <Typography as="span" tone="secondary" variant="monoSm">
             Loop
           </Typography>
@@ -587,7 +585,6 @@ export function EditorTimelineOverlay() {
 
   const selectedTrack =
     layerTracks.find((track) => track.id === selectedTrackId) ?? null
-  const easingValue = selectedTrack?.interpolation ?? NO_EASING_VALUE
   const progress = duration > 0 ? clamp(currentTime / duration, 0, 1) : 0
   const shellWidth = timelinePanelOpen
     ? Math.min(EXPANDED_SHELL_WIDTH, Math.max(640, viewportSize.width - 96))
@@ -595,6 +592,7 @@ export function EditorTimelineOverlay() {
   const shellHeight = timelinePanelOpen
     ? Math.min(EXPANDED_SHELL_HEIGHT, Math.max(220, viewportSize.height - 268))
     : COLLAPSED_SHELL_HEIGHT
+  const expandedBodyHeight = Math.max(0, shellHeight - COLLAPSED_SHELL_HEIGHT)
 
   const handleScrubStart = (event: ReactPointerEvent<HTMLDivElement>) => {
     event.preventDefault()
@@ -603,15 +601,15 @@ export function EditorTimelineOverlay() {
   }
 
   let panelBodyAnimation: {
-    height: number | "auto"
+    height: number
     opacity: number
     y?: number
   }
 
   if (timelinePanelOpen) {
     panelBodyAnimation = reduceMotion
-      ? { height: "auto", opacity: 1 }
-      : { height: "auto", opacity: 1, y: 0 }
+      ? { height: expandedBodyHeight, opacity: 1 }
+      : { height: expandedBodyHeight, opacity: 1, y: 0 }
   } else {
     panelBodyAnimation = reduceMotion
       ? { height: 0, opacity: 0 }
@@ -762,39 +760,6 @@ export function EditorTimelineOverlay() {
                     )}
                   </div>
                 </div>
-
-                <div className={s.panelSection}>
-                  <Typography
-                    className={s.sectionTitle}
-                    tone="secondary"
-                    variant="overline"
-                  >
-                    Easing
-                  </Typography>
-
-                  <Select
-                    className={s.easingSelect ?? ""}
-                    disabled={!selectedTrack}
-                    onValueChange={(value) => {
-                      if (value && value !== NO_EASING_VALUE && selectedTrack) {
-                        setTrackInterpolation(
-                          selectedTrack.id,
-                          value as TimelineInterpolation
-                        )
-                      }
-                    }}
-                    options={[
-                      {
-                        disabled: true,
-                        label: "Select easing",
-                        value: NO_EASING_VALUE,
-                      },
-                      ...INTERPOLATION_OPTIONS,
-                    ]}
-                    placeholder="Select easing"
-                    value={easingValue}
-                  />
-                </div>
               </div>
 
               <div className={s.timelinePane}>
@@ -929,7 +894,69 @@ export function EditorTimelineOverlay() {
                       <div aria-hidden="true" className={s.playheadLine} />
                     </div>
                   </div>
+
                 </div>
+
+                {selectedTrack ? (
+                  <div
+                    className={s.floatingEasing}
+                    onPointerDown={(event) => {
+                      event.stopPropagation()
+                    }}
+                  >
+                    <BaseSelect.Root
+                      items={INTERPOLATION_OPTIONS}
+                      modal={false}
+                      onValueChange={(value) => {
+                        if (value) {
+                          setTrackInterpolation(
+                            selectedTrack.id,
+                            value as TimelineInterpolation
+                          )
+                        }
+                      }}
+                      value={selectedTrack.interpolation}
+                    >
+                      <BaseSelect.Trigger
+                        aria-label="Track easing"
+                        className={s.easingTrigger}
+                        onPointerDown={(event) => {
+                          event.stopPropagation()
+                        }}
+                      >
+                        <BezierCurveIcon size={14} weight="bold" />
+                      </BaseSelect.Trigger>
+
+                      <BaseSelect.Portal>
+                        <BaseSelect.Positioner
+                          align="end"
+                          alignItemWithTrigger={false}
+                          className={s.easingPositioner}
+                          side="top"
+                          sideOffset={10}
+                        >
+                          <BaseSelect.Popup className={s.easingPopup}>
+                            <BaseSelect.List className={s.easingList}>
+                              {INTERPOLATION_OPTIONS.map((option) => (
+                                <BaseSelect.Item
+                                  className={s.easingItem}
+                                  key={option.value}
+                                  value={option.value}
+                                >
+                                  <BaseSelect.ItemText
+                                    className={s.easingItemText}
+                                  >
+                                    {option.label}
+                                  </BaseSelect.ItemText>
+                                </BaseSelect.Item>
+                              ))}
+                            </BaseSelect.List>
+                          </BaseSelect.Popup>
+                        </BaseSelect.Positioner>
+                      </BaseSelect.Portal>
+                    </BaseSelect.Root>
+                  </div>
+                ) : null}
               </div>
             </div>
           </motion.div>
