@@ -642,6 +642,17 @@ const asciiParams = [
 
 const ditheringParams = [
   {
+    defaultValue: "custom",
+    group: "Pattern",
+    key: "preset",
+    label: "Preset",
+    options: [
+      { label: "Custom", value: "custom" },
+      { label: "Game Boy", value: "gameboy" },
+    ],
+    type: "select",
+  },
+  {
     defaultValue: "bayer-4x4",
     group: "Pattern",
     key: "algorithm",

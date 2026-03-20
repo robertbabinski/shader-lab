@@ -52,11 +52,16 @@ export function getSelectedAsset(
 }
 
 export function formatLayerKind(kind: string): string {
-  if (kind === "source") {
-    return "Source"
+  switch (kind) {
+    case "effect":
+      return "Effect"
+    case "model":
+      return "3D Model"
+    case "source":
+      return "Source"
+    default:
+      return kind
   }
-
-  return kind
 }
 
 export function toColorValue(value: ParameterValue): string {

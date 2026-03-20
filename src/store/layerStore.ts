@@ -35,7 +35,7 @@ export interface LayerStoreActions {
   replaceState: (
     layers: EditorLayer[],
     selectedLayerId?: string | null,
-    hoveredLayerId?: string | null,
+    hoveredLayerId?: string | null
   ) => void
   reorderLayers: (fromIndex: number, toIndex: number) => void
   resetLayerParams: (id: string) => void
@@ -81,6 +81,25 @@ function getGradientNoiseDefaults(noiseType: string): {
   }
 }
 
+function getDitheringPresetDefaults(
+  preset: string
+): Record<string, ParameterValue> | null {
+  switch (preset) {
+    case "gameboy":
+      return {
+        algorithm: "bayer-2x2",
+        colorMode: "duo-tone",
+        highlightColor: "#9bbc0f",
+        levels: 4,
+        pixelSize: 3,
+        shadowColor: "#0f380f",
+        spread: 0.5,
+      }
+    default:
+      return null
+  }
+}
+
 export function cloneLayerList(layers: EditorLayer[]): EditorLayer[] {
   return layers.map((layer) => ({
     ...layer,
@@ -92,7 +111,10 @@ function countLayersOfType(layers: EditorLayer[], type: LayerType): number {
   return layers.filter((layer) => layer.type === type).length
 }
 
-function getNeighborSelection(layers: EditorLayer[], removedIndex: number): string | null {
+function getNeighborSelection(
+  layers: EditorLayer[],
+  removedIndex: number
+): string | null {
   const nextIndex = Math.min(removedIndex, layers.length - 1)
   const nextLayer = layers[nextIndex]
 
@@ -111,7 +133,11 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
     set((state) => {
       const layers = [...state.layers]
 
-      if (insertIndex === undefined || insertIndex < 0 || insertIndex > layers.length) {
+      if (
+        insertIndex === undefined ||
+        insertIndex < 0 ||
+        insertIndex > layers.length
+      ) {
         layers.unshift(nextLayer)
       } else {
         layers.splice(insertIndex, 0, nextLayer)
@@ -137,7 +163,8 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
       const layers = state.layers.filter((layer) => layer.id !== id)
 
       return {
-        hoveredLayerId: state.hoveredLayerId === id ? null : state.hoveredLayerId,
+        hoveredLayerId:
+          state.hoveredLayerId === id ? null : state.hoveredLayerId,
         layers,
         selectedLayerId:
           state.selectedLayerId === id
@@ -213,7 +240,7 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
 
     set((state) => ({
       layers: state.layers.map((layer) =>
-        layer.id === id ? { ...layer, name: nextName } : layer,
+        layer.id === id ? { ...layer, name: nextName } : layer
       ),
     }))
   },
@@ -221,7 +248,7 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
   setLayerVisibility: (id, visible) => {
     set((state) => ({
       layers: state.layers.map((layer) =>
-        layer.id === id ? { ...layer, visible } : layer,
+        layer.id === id ? { ...layer, visible } : layer
       ),
     }))
   },
@@ -229,7 +256,7 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
   setLayerLocked: (id, locked) => {
     set((state) => ({
       layers: state.layers.map((layer) =>
-        layer.id === id ? { ...layer, locked } : layer,
+        layer.id === id ? { ...layer, locked } : layer
       ),
     }))
   },
@@ -237,7 +264,7 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
   setLayerExpanded: (id, expanded) => {
     set((state) => ({
       layers: state.layers.map((layer) =>
-        layer.id === id ? { ...layer, expanded } : layer,
+        layer.id === id ? { ...layer, expanded } : layer
       ),
     }))
   },
@@ -302,7 +329,7 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
   setLayerBlendMode: (id, blendMode) => {
     set((state) => ({
       layers: state.layers.map((layer) =>
-        layer.id === id ? { ...layer, blendMode } : layer,
+        layer.id === id ? { ...layer, blendMode } : layer
       ),
     }))
   },
@@ -310,7 +337,7 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
   setLayerCompositeMode: (id, compositeMode) => {
     set((state) => ({
       layers: state.layers.map((layer) =>
-        layer.id === id ? { ...layer, compositeMode } : layer,
+        layer.id === id ? { ...layer, compositeMode } : layer
       ),
     }))
   },
@@ -318,7 +345,7 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
   setLayerAsset: (id, assetId) => {
     set((state) => ({
       layers: state.layers.map((layer) =>
-        layer.id === id ? { ...layer, assetId, runtimeError: null } : layer,
+        layer.id === id ? { ...layer, assetId, runtimeError: null } : layer
       ),
     }))
   },
@@ -332,7 +359,7 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
 
         const definition = getParameterDefinition(
           getLayerDefinition(layer.type).params,
-          key,
+          key
         )
 
         if (!definition) {
@@ -344,12 +371,28 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
           [key]: cloneParameterValue(value),
         }
 
-        if (layer.type === "gradient" && key === "noiseType" && typeof value === "string") {
+        if (
+          layer.type === "gradient" &&
+          key === "noiseType" &&
+          typeof value === "string"
+        ) {
           const defaults = getGradientNoiseDefaults(value)
 
           if (defaults) {
             nextParams.warpAmount = defaults.warpAmount
             nextParams.warpScale = defaults.warpScale
+          }
+        }
+
+        if (
+          layer.type === "dithering" &&
+          key === "preset" &&
+          typeof value === "string"
+        ) {
+          const defaults = getDitheringPresetDefaults(value)
+
+          if (defaults) {
+            Object.assign(nextParams, defaults)
           }
         }
 
@@ -371,7 +414,7 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
               params: resetLayerParameters(layer.type),
               runtimeError: null,
             }
-          : layer,
+          : layer
       ),
     }))
   },
@@ -379,7 +422,7 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
   setLayerRuntimeError: (id, runtimeError) => {
     set((state) => ({
       layers: state.layers.map((layer) =>
-        layer.id === id ? { ...layer, runtimeError } : layer,
+        layer.id === id ? { ...layer, runtimeError } : layer
       ),
     }))
   },
@@ -395,7 +438,9 @@ export const useLayerStore = create<LayerStore>((set, get) => ({
   getSelectedLayer: () => {
     const state = get()
 
-    return state.layers.find((layer) => layer.id === state.selectedLayerId) ?? null
+    return (
+      state.layers.find((layer) => layer.id === state.selectedLayerId) ?? null
+    )
   },
 
   getLayerById: (id) => {

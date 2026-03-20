@@ -54,7 +54,6 @@ export function SelectedLayerPropertiesContent({
   layerName,
   layerRuntimeError,
   layerSubtitle,
-  layerType,
   onToggleParamGroup,
   onTimelineKeyframe,
   opacity,
@@ -80,7 +79,6 @@ export function SelectedLayerPropertiesContent({
   layerName: string
   layerRuntimeError: string | null
   layerSubtitle: string
-  layerType: string
   onToggleParamGroup: (groupId: string) => void
   onTimelineKeyframe: (
     binding: AnimatedPropertyBinding,
@@ -174,9 +172,11 @@ export function SelectedLayerPropertiesContent({
           <span className={s.kindBadge}>{formatLayerKind(layerKind)}</span>
         </div>
         <Typography variant="title">{layerName}</Typography>
-        <Typography tone="muted" variant="monoXs">
-          {layerSubtitle || layerType}
-        </Typography>
+        {layerSubtitle ? (
+          <Typography tone="muted" variant="monoXs">
+            {layerSubtitle}
+          </Typography>
+        ) : null}
         {layerRuntimeError ? (
           <Typography tone="muted" variant="caption">
             {layerRuntimeError}
@@ -278,13 +278,15 @@ export function SelectedLayerPropertiesContent({
 
         {visibleParams.length > 0 ? (
           <section className={s.section}>
-            <Typography
-              className={s.sectionTitle}
-              tone="secondary"
-              variant="overline"
-            >
-              {definitionName}
-            </Typography>
+            {!showGroupedParams && (
+              <Typography
+                className={s.sectionTitle}
+                tone="secondary"
+                variant="overline"
+              >
+                {definitionName}
+              </Typography>
+            )}
 
             {showGroupedParams ? (
               <div className={s.groupStack}>
