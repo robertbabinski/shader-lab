@@ -9,38 +9,14 @@
   z-index: 35;
 }
 
-.stack {
-  align-items: center;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  width: 100%;
-}
-
-.barWrap,
-.panelWrap {
-  pointer-events: none;
-}
-
 .panelWrap {
   margin: 0 auto;
-  max-height: min(380px, calc(100vh - 268px));
-  width: min(820px, calc(100vw - 96px));
-}
-
-.bar {
-  align-items: center;
-  display: flex;
-  justify-content: center;
-  margin: 0 auto;
-  min-height: 40px;
-  padding: 6px;
   pointer-events: auto;
-  width: fit-content;
+  transform-origin: center bottom;
 }
 
-.barCollapsed {
-  min-width: 580px;
+.panelWrap {
+  max-height: min(380px, calc(100vh - 268px));
 }
 
 .transport {
@@ -148,6 +124,17 @@
 .panelHeader {
   border-bottom: 1px solid var(--ds-border-divider);
   padding: 8px 12px;
+  transition: border-color 160ms var(--ease-out-cubic);
+}
+
+.panelHeaderCollapsed {
+  border-bottom-color: transparent;
+}
+
+.panelBodyMotion {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .panelBody {
@@ -155,6 +142,10 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
+}
+
+.panelBodyHidden {
+  pointer-events: none;
 }
 
 .panelSidebar {
@@ -443,7 +434,7 @@
 }
 
 .emptySurface {
-  align-items: center;
+  align-items: start;
   display: flex;
   inset: 30px 0 0;
   justify-content: center;
@@ -452,9 +443,6 @@
 }
 
 .emptyCard {
-  background-color: rgb(12 12 18 / 0.5);
-  border: 1px solid rgb(255 255 255 / 0.06);
-  border-radius: 14px;
   display: flex;
   flex-direction: column;
   gap: 6px;
