@@ -175,10 +175,10 @@
 .groupChevronExpanded {
   transform: rotate(-135deg) translate(-1px, -1px);
 }
-
+/* 
 .groupBodyWrap {
   overflow: hidden;
-}
+} */
 
 .inlineField {
   align-items: center;
