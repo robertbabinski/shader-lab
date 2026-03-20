@@ -129,7 +129,7 @@ export class ParticleGridPass extends PassNode {
   override updateParams(params: LayerParameterValues): void {
     const nextResolution =
       typeof params.gridResolution === "number"
-        ? Math.max(16, Math.min(256, Math.round(params.gridResolution)))
+        ? Math.max(16, Math.min(512, Math.round(params.gridResolution)))
         : 64
     const nextPointSize =
       typeof params.pointSize === "number" ? params.pointSize : 3
