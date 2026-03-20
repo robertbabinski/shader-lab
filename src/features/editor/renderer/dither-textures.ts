@@ -1,5 +1,7 @@
 import * as THREE from "three/webgpu"
 
+const BAYER_2X2 = [0, 2, 3, 1] as const
+
 const BAYER_4X4 = [
   0, 8, 2, 10,
   12, 4, 14, 6,
@@ -81,15 +83,17 @@ function buildBlueNoiseTexture(size = 64): THREE.DataTexture {
 }
 
 export interface DitherTextures {
+  bayer2: THREE.DataTexture
   bayer4: THREE.DataTexture
   bayer8: THREE.DataTexture
-  blueNoise: THREE.DataTexture
+  noise: THREE.DataTexture
 }
 
 export function buildDitherTextures(): DitherTextures {
   return {
+    bayer2: buildBayerTexture(BAYER_2X2, 2),
     bayer4: buildBayerTexture(BAYER_4X4, 4),
     bayer8: buildBayerTexture(BAYER_8X8, 8),
-    blueNoise: buildBlueNoiseTexture(),
+    noise: buildBlueNoiseTexture(),
   }
 }

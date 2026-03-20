@@ -647,9 +647,10 @@ const ditheringParams = [
     key: "algorithm",
     label: "Algorithm",
     options: [
+      { label: "Bayer 2x2", value: "bayer-2x2" },
       { label: "Bayer 4x4", value: "bayer-4x4" },
       { label: "Bayer 8x8", value: "bayer-8x8" },
-      { label: "Blue Noise", value: "blue-noise" },
+      { label: "Noise", value: "noise" },
     ],
     type: "select",
   },
@@ -661,7 +662,6 @@ const ditheringParams = [
     options: [
       { label: "Monochrome", value: "monochrome" },
       { label: "Source Color", value: "source" },
-      { label: "Posterized Source", value: "posterized-source" },
       { label: "Duo Tone", value: "duo-tone" },
     ],
     type: "select",
@@ -713,7 +713,7 @@ const ditheringParams = [
     defaultValue: 0.5,
     group: "Pattern",
     key: "spread",
-    label: "Spread",
+    label: "Strength",
     max: 1,
     min: 0,
     step: 0.01,
@@ -728,20 +728,6 @@ const ditheringParams = [
     min: 2,
     step: 1,
     type: "number",
-  },
-  {
-    defaultValue: 0.25,
-    group: "Pattern",
-    key: "bias",
-    label: "Bias",
-    max: 1,
-    min: 0,
-    step: 0.01,
-    type: "number",
-    visibleWhen: {
-      equals: "posterized-source",
-      key: "colorMode",
-    },
   },
 ] as const satisfies ParameterDefinitions
 
