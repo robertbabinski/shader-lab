@@ -19,7 +19,7 @@ import { PassNode } from "@/features/editor/renderer/pass-node"
 import type { LayerParameterValues } from "@/features/editor/types"
 
 type Node = TSLNode
-type DitherColorMode = "duo-tone" | "monochrome" | "source"
+type DitherColorMode = "duo-tone" | "monochrome" | "posterized-source" | "source"
 
 function hexToRgb(hex: string): [number, number, number] {
   const normalized = hex.trim().replace("#", "")
@@ -39,6 +39,7 @@ function hexToRgb(hex: string): [number, number, number] {
 }
 
 export class DitheringPass extends PassNode {
+  private readonly biasUniform: Node
   private colorMode: DitherColorMode = "source"
   private readonly colorBlueUniform: Node
   private readonly colorGreenUniform: Node
@@ -65,6 +66,7 @@ export class DitheringPass extends PassNode {
     this.textures = buildDitherTextures()
     this.placeholder = new THREE.Texture()
     this.currentTexture = this.textures.bayer4
+    this.biasUniform = uniform(0.25)
     this.levelsUniform = uniform(4)
     this.matrixSizeUniform = uniform(4)
     this.pixelSizeUniform = uniform(1)
@@ -101,7 +103,9 @@ export class DitheringPass extends PassNode {
 
   override updateParams(params: LayerParameterValues): void {
     const nextColorMode: DitherColorMode =
-      params.colorMode === "monochrome" || params.colorMode === "duo-tone"
+      params.colorMode === "monochrome" ||
+      params.colorMode === "duo-tone" ||
+      params.colorMode === "posterized-source"
         ? params.colorMode
         : "source"
 
@@ -124,6 +128,10 @@ export class DitheringPass extends PassNode {
     this.highlightBlueUniform.value = highlightBlue
     this.levelsUniform.value =
       typeof params.levels === "number" ? Math.max(2, params.levels) : 4
+    this.biasUniform.value =
+      typeof params.bias === "number"
+        ? Math.max(0, Math.min(1, params.bias))
+        : 0.25
     this.pixelSizeUniform.value =
       typeof params.pixelSize === "number" ? Math.max(1, Math.round(params.pixelSize)) : 1
     this.spreadUniform.value =
@@ -184,6 +192,7 @@ export class DitheringPass extends PassNode {
     const src = this.sourceTextureNode
     const threshold = float(this.ditherNode.r)
     const levelsMinusOne = max(this.levelsUniform.sub(float(1)), float(1))
+    const thresholdOffset = threshold.sub(this.biasUniform).mul(this.spreadUniform)
     const luma = float(src.r)
       .mul(float(0.2126))
       .add(float(src.g).mul(float(0.7152)))
@@ -194,6 +203,15 @@ export class DitheringPass extends PassNode {
       ),
       float(0),
       float(1),
+    )
+    const posterizedSource = clamp(
+      vec3(
+        floor(float(src.r).add(thresholdOffset).mul(levelsMinusOne).add(0.5)).div(levelsMinusOne),
+        floor(float(src.g).add(thresholdOffset).mul(levelsMinusOne).add(0.5)).div(levelsMinusOne),
+        floor(float(src.b).add(thresholdOffset).mul(levelsMinusOne).add(0.5)).div(levelsMinusOne),
+      ),
+      vec3(float(0), float(0), float(0)),
+      vec3(float(1), float(1), float(1)),
     )
     const monoTint = vec3(
       this.colorRedUniform,
@@ -224,6 +242,8 @@ export class DitheringPass extends PassNode {
         return vec4(monochrome, float(1))
       case "duo-tone":
         return vec4(duoTone, float(1))
+      case "posterized-source":
+        return vec4(posterizedSource, float(1))
       default:
         return vec4(sourceColor, float(1))
     }

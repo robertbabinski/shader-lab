@@ -559,6 +559,7 @@ const asciiParams = [
 const ditheringParams = [
   {
     defaultValue: "bayer-4x4",
+    group: "Pattern",
     key: "algorithm",
     label: "Algorithm",
     options: [
@@ -570,17 +571,20 @@ const ditheringParams = [
   },
   {
     defaultValue: "source",
+    group: "Color",
     key: "colorMode",
     label: "Color Mode",
     options: [
       { label: "Monochrome", value: "monochrome" },
       { label: "Source Color", value: "source" },
+      { label: "Posterized Source", value: "posterized-source" },
       { label: "Duo Tone", value: "duo-tone" },
     ],
     type: "select",
   },
   {
     defaultValue: "#f5f5f0",
+    group: "Color",
     key: "monoColor",
     label: "Color",
     type: "color",
@@ -591,6 +595,7 @@ const ditheringParams = [
   },
   {
     defaultValue: "#101010",
+    group: "Color",
     key: "shadowColor",
     label: "Shadow",
     type: "color",
@@ -601,6 +606,7 @@ const ditheringParams = [
   },
   {
     defaultValue: "#f5f2e8",
+    group: "Color",
     key: "highlightColor",
     label: "Highlight",
     type: "color",
@@ -611,6 +617,7 @@ const ditheringParams = [
   },
   {
     defaultValue: 1,
+    group: "Pattern",
     key: "pixelSize",
     label: "Pixel Size",
     max: 24,
@@ -620,6 +627,7 @@ const ditheringParams = [
   },
   {
     defaultValue: 0.5,
+    group: "Pattern",
     key: "spread",
     label: "Spread",
     max: 1,
@@ -629,12 +637,27 @@ const ditheringParams = [
   },
   {
     defaultValue: 4,
+    group: "Color",
     key: "levels",
     label: "Levels",
     max: 16,
     min: 2,
     step: 1,
     type: "number",
+  },
+  {
+    defaultValue: 0.25,
+    group: "Pattern",
+    key: "bias",
+    label: "Bias",
+    max: 1,
+    min: 0,
+    step: 0.01,
+    type: "number",
+    visibleWhen: {
+      equals: "posterized-source",
+      key: "colorMode",
+    },
   },
 ] as const satisfies ParameterDefinitions
 
