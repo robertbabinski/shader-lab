@@ -1,7 +1,14 @@
 export const LAYER_KINDS = ["source", "effect", "model"] as const
 export type LayerKind = (typeof LAYER_KINDS)[number]
 
-export const SOURCE_LAYER_TYPES = ["image", "video", "gradient", "fluid", "live"] as const
+export const SOURCE_LAYER_TYPES = [
+  "image",
+  "video",
+  "gradient",
+  "fluid",
+  "live",
+  "custom-shader",
+] as const
 export type SourceLayerType = (typeof SOURCE_LAYER_TYPES)[number]
 
 export const EFFECT_LAYER_TYPES = [
@@ -77,7 +84,10 @@ export type ParameterVisibilityCondition = {
     }
 )
 
-type ParameterDefinitionBase<TType extends ParameterType, TValue extends ParameterValue> = {
+type ParameterDefinitionBase<
+  TType extends ParameterType,
+  TValue extends ParameterValue,
+> = {
   animatable?: boolean
   defaultValue: TValue
   description?: string
@@ -88,7 +98,10 @@ type ParameterDefinitionBase<TType extends ParameterType, TValue extends Paramet
   visibleWhen?: ParameterVisibilityCondition
 }
 
-export type NumberParameterDefinition = ParameterDefinitionBase<"number", number> & {
+export type NumberParameterDefinition = ParameterDefinitionBase<
+  "number",
+  number
+> & {
   input?: "float" | "int"
   max?: number
   min?: number
@@ -96,9 +109,15 @@ export type NumberParameterDefinition = ParameterDefinitionBase<"number", number
   unit?: string
 }
 
-export type BooleanParameterDefinition = ParameterDefinitionBase<"boolean", boolean>
+export type BooleanParameterDefinition = ParameterDefinitionBase<
+  "boolean",
+  boolean
+>
 
-export type SelectParameterDefinition = ParameterDefinitionBase<"select", string> & {
+export type SelectParameterDefinition = ParameterDefinitionBase<
+  "select",
+  string
+> & {
   options: readonly {
     label: string
     value: string
@@ -107,17 +126,26 @@ export type SelectParameterDefinition = ParameterDefinitionBase<"select", string
 
 export type ColorParameterDefinition = ParameterDefinitionBase<"color", string>
 
-export type TextParameterDefinition = ParameterDefinitionBase<"text", string> & {
+export type TextParameterDefinition = ParameterDefinitionBase<
+  "text",
+  string
+> & {
   maxLength?: number
 }
 
-export type Vec2ParameterDefinition = ParameterDefinitionBase<"vec2", [number, number]> & {
+export type Vec2ParameterDefinition = ParameterDefinitionBase<
+  "vec2",
+  [number, number]
+> & {
   max?: number
   min?: number
   step?: number
 }
 
-export type Vec3ParameterDefinition = ParameterDefinitionBase<"vec3", [number, number, number]> & {
+export type Vec3ParameterDefinition = ParameterDefinitionBase<
+  "vec3",
+  [number, number, number]
+> & {
   max?: number
   min?: number
   step?: number
@@ -196,7 +224,11 @@ export interface EditorAsset {
 export const TIMELINE_INTERPOLATIONS = ["linear", "smooth", "step"] as const
 export type TimelineInterpolation = (typeof TIMELINE_INTERPOLATIONS)[number]
 
-export type LayerAnimatableProperty = "opacity" | "hue" | "saturation" | "visible"
+export type LayerAnimatableProperty =
+  | "opacity"
+  | "hue"
+  | "saturation"
+  | "visible"
 export type AnimatableValueType = Exclude<ParameterType, "text"> | "boolean"
 
 export type AnimatedPropertyBinding =
@@ -239,7 +271,12 @@ export interface TimelineStateSnapshot {
 }
 
 export type RenderScale = 1 | 0.75 | 0.5
-export type WebGPUStatus = "idle" | "unsupported" | "initializing" | "ready" | "error"
+export type WebGPUStatus =
+  | "idle"
+  | "unsupported"
+  | "initializing"
+  | "ready"
+  | "error"
 
 export interface EditorStateSnapshot {
   canvasSize: Size
@@ -265,7 +302,12 @@ export interface EditorHistorySnapshot {
   selectedLayerId: string | null
   timeline: Pick<
     TimelineStateSnapshot,
-    "currentTime" | "duration" | "loop" | "selectedKeyframeId" | "selectedTrackId" | "tracks"
+    | "currentTime"
+    | "duration"
+    | "loop"
+    | "selectedKeyframeId"
+    | "selectedTrackId"
+    | "tracks"
   >
 }
 

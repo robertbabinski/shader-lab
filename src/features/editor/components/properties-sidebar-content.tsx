@@ -1,19 +1,28 @@
 "use client"
 
 import { AnimatePresence, motion } from "motion/react"
-import { useCallback, useMemo } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { CUSTOM_SHADER_ENTRY_EXPORT } from "@/features/editor/custom-shader/shared"
+import { formatCustomShaderSource } from "@/features/editor/renderer/custom-shader-runtime"
 import type {
   AnimatedPropertyBinding,
   BlendMode,
   LayerCompositeMode,
+  LayerType,
   ParameterDefinition,
   ParameterValue,
 } from "@/features/editor/types"
+import { Button } from "@/shared/ui/button"
 import { Select } from "@/shared/ui/select"
 import { Slider } from "@/shared/ui/slider"
 import { Typography } from "@/shared/ui/typography"
 import { useTimelineStore } from "@/store/timelineStore"
 import s from "./properties-sidebar.module.css"
+import {
+  ParameterField,
+  renderFieldLabel,
+  type TimelineKeyframeControl,
+} from "./properties-sidebar-fields"
 import {
   blendModeOptions,
   compositeModeOptions,
@@ -23,11 +32,6 @@ import {
   groupVisibleParams,
   hasTrackForBinding,
 } from "./properties-sidebar-utils"
-import {
-  ParameterField,
-  renderFieldLabel,
-  type TimelineKeyframeControl,
-} from "./properties-sidebar-fields"
 
 export function EmptyPropertiesContent() {
   return (
@@ -43,6 +47,156 @@ export function EmptyPropertiesContent() {
   )
 }
 
+function CustomShaderSection({
+  layerId,
+  updateLayerParam,
+  values,
+}: {
+  layerId: string
+  updateLayerParam: (id: string, key: string, value: ParameterValue) => void
+  values: Record<string, ParameterValue>
+}) {
+  const persistedSource =
+    typeof values.sourceCode === "string" ? values.sourceCode : ""
+  const persistedEntryExport =
+    typeof values.entryExport === "string" && values.entryExport.trim()
+      ? values.entryExport
+      : CUSTOM_SHADER_ENTRY_EXPORT
+  const persistedRevision =
+    typeof values.sourceRevision === "number" ? values.sourceRevision : 0
+  const [draftSource, setDraftSource] = useState(persistedSource)
+  const [draftEntryExport, setDraftEntryExport] = useState(persistedEntryExport)
+  const [formatError, setFormatError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setDraftSource(persistedSource)
+  }, [persistedSource])
+
+  useEffect(() => {
+    setDraftEntryExport(persistedEntryExport)
+  }, [persistedEntryExport])
+
+  const isDirty =
+    draftSource !== persistedSource || draftEntryExport !== persistedEntryExport
+
+  const commitShader = useCallback(
+    (next: { entryExport?: string; sourceCode?: string } = {}) => {
+      const nextEntryExport =
+        (next.entryExport ?? draftEntryExport).trim() ||
+        CUSTOM_SHADER_ENTRY_EXPORT
+      const nextSourceCode = next.sourceCode ?? draftSource
+
+      updateLayerParam(layerId, "sourceMode", "paste")
+      updateLayerParam(layerId, "entryExport", nextEntryExport)
+      updateLayerParam(layerId, "sourceFileName", "")
+      updateLayerParam(layerId, "sourceCode", nextSourceCode)
+      updateLayerParam(layerId, "sourceRevision", persistedRevision + 1)
+    },
+    [
+      draftEntryExport,
+      draftSource,
+      layerId,
+      persistedRevision,
+      updateLayerParam,
+    ]
+  )
+
+  return (
+    <section className={s.section}>
+      <Typography
+        className={s.sectionTitle}
+        tone="secondary"
+        variant="overline"
+      >
+        Shader
+      </Typography>
+
+      <div className={s.fieldStack}>
+        <label className={s.textField}>
+          <Typography className={s.fieldLabel} tone="secondary" variant="label">
+            Entry Export
+          </Typography>
+          <input
+            className={s.textInput}
+            onChange={(event) => {
+              setDraftEntryExport(event.currentTarget.value)
+              setFormatError(null)
+            }}
+            spellCheck={false}
+            type="text"
+            value={draftEntryExport}
+          />
+        </label>
+
+        <label className={s.textField}>
+          <Typography className={s.fieldLabel} tone="secondary" variant="label">
+            Sketch Source
+          </Typography>
+          <textarea
+            className={s.shaderTextarea}
+            onChange={(event) => {
+              setDraftSource(event.currentTarget.value)
+              setFormatError(null)
+            }}
+            spellCheck={false}
+            value={draftSource}
+          />
+        </label>
+
+        <div className={s.shaderToolbar}>
+          <Button
+            disabled={!isDirty}
+            onClick={() => commitShader()}
+            size="compact"
+            variant="primary"
+          >
+            Apply
+          </Button>
+          <Button
+            onClick={() => commitShader()}
+            size="compact"
+            variant="secondary"
+          >
+            Recompile
+          </Button>
+          <Button
+            onClick={() => {
+              void formatCustomShaderSource({
+                fileName: "custom-shader.ts",
+                sourceCode: draftSource,
+              })
+                .then((formatted) => {
+                  setDraftSource(formatted)
+                  setFormatError(null)
+                })
+                .catch((error) => {
+                  setFormatError(
+                    error instanceof Error
+                      ? error.message
+                      : "Could not format sketch source."
+                  )
+                })
+            }}
+            size="compact"
+            variant="neutral"
+          >
+            Format
+          </Button>
+        </div>
+
+        <Typography tone="muted" variant="caption">
+          {`⌘V export const sketch = Fn(() => { ...`}
+        </Typography>
+        {formatError ? (
+          <Typography tone="muted" variant="caption">
+            {formatError}
+          </Typography>
+        ) : null}
+      </div>
+    </section>
+  )
+}
+
 export function SelectedLayerPropertiesContent({
   blendMode,
   compositeMode,
@@ -54,6 +208,7 @@ export function SelectedLayerPropertiesContent({
   layerName,
   layerRuntimeError,
   layerSubtitle,
+  layerType,
   onToggleParamGroup,
   onTimelineKeyframe,
   opacity,
@@ -79,6 +234,7 @@ export function SelectedLayerPropertiesContent({
   layerName: string
   layerRuntimeError: string | null
   layerSubtitle: string
+  layerType: LayerType
   onToggleParamGroup: (groupId: string) => void
   onTimelineKeyframe: (
     binding: AnimatedPropertyBinding,
@@ -275,6 +431,14 @@ export function SelectedLayerPropertiesContent({
             />
           </div>
         </section>
+
+        {layerType === "custom-shader" ? (
+          <CustomShaderSection
+            layerId={layerId}
+            updateLayerParam={updateLayerParam}
+            values={values}
+          />
+        ) : null}
 
         {visibleParams.length > 0 ? (
           <section className={s.section}>

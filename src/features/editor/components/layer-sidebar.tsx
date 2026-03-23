@@ -12,8 +12,18 @@ import {
   SidebarSimpleIcon,
   Sparkle,
 } from "@phosphor-icons/react"
-import { useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react"
-import type { AssetKind, EditorAsset, EditorLayer } from "@/features/editor/types"
+import {
+  type ChangeEvent,
+  type ReactNode,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
+import type {
+  AssetKind,
+  EditorAsset,
+  EditorLayer,
+} from "@/features/editor/types"
 import { cn } from "@/shared/lib/cn"
 import { GlassPanel } from "@/shared/ui/glass-panel"
 import { IconButton } from "@/shared/ui/icon-button"
@@ -24,7 +34,20 @@ import { useEditorStore } from "@/store/editorStore"
 import { useLayerStore } from "@/store/layerStore"
 import s from "./layer-sidebar.module.css"
 
-type AddLayerAction = "ascii" | "crt" | "dithering" | "gradient" | "halftone" | "image" | "live" | "particle-grid" | "pixel-sorting" | "video"
+const IS_DEV = process.env.NODE_ENV === "development"
+
+type AddLayerAction =
+  | "ascii"
+  | "crt"
+  | "custom-shader"
+  | "dithering"
+  | "gradient"
+  | "halftone"
+  | "image"
+  | "live"
+  | "particle-grid"
+  | "pixel-sorting"
+  | "video"
 type LayerAction = "delete" | "reset"
 
 const addLayerOptions = [
@@ -64,6 +87,19 @@ const addLayerOptions = [
     ),
     value: "gradient",
   },
+  ...(IS_DEV
+    ? [
+        {
+          label: (
+            <span className={s.menuButton}>
+              <Sparkle size={14} weight="regular" />
+              Custom Shader
+            </span>
+          ),
+          value: "custom-shader" as const,
+        },
+      ]
+    : []),
   {
     label: (
       <span className={s.menuButton}>
@@ -120,12 +156,19 @@ const addLayerOptions = [
   },
 ] as const satisfies readonly { label: ReactNode; value: AddLayerAction }[]
 
-function getLayerSecondaryText(layer: EditorLayer, asset: EditorAsset | null): string {
+function getLayerSecondaryText(
+  layer: EditorLayer,
+  asset: EditorAsset | null
+): string {
   if (layer.runtimeError) {
     return layer.runtimeError
   }
 
-  if (layer.type === "image" || layer.type === "video" || layer.type === "model") {
+  if (
+    layer.type === "image" ||
+    layer.type === "video" ||
+    layer.type === "model"
+  ) {
     return asset?.fileName ?? "No asset selected"
   }
 
@@ -133,10 +176,21 @@ function getLayerSecondaryText(layer: EditorLayer, asset: EditorAsset | null): s
     return "webcam"
   }
 
+  if (layer.type === "custom-shader") {
+    return (
+      (typeof layer.params.sourceFileName === "string" &&
+        layer.params.sourceFileName) ||
+      "custom shader"
+    )
+  }
+
   return layer.type.replaceAll("-", " ")
 }
 
-function getThumbnailClassName(layer: EditorLayer, asset: EditorAsset | null): string {
+function getThumbnailClassName(
+  layer: EditorLayer,
+  asset: EditorAsset | null
+): string {
   if (asset?.kind === "image" || asset?.kind === "video") {
     return cn(s.thumbnail, s.thumbnailImage)
   }
@@ -149,7 +203,11 @@ function getThumbnailClassName(layer: EditorLayer, asset: EditorAsset | null): s
 }
 
 function getExpectedAssetKind(layer: EditorLayer): AssetKind | null {
-  if (layer.type === "image" || layer.type === "video" || layer.type === "model") {
+  if (
+    layer.type === "image" ||
+    layer.type === "video" ||
+    layer.type === "model"
+  ) {
     return layer.type
   }
 
@@ -196,10 +254,15 @@ function inferSelectedFileKind(file: File): AssetKind | null {
 export function LayerSidebar() {
   const imageInputRef = useRef<HTMLInputElement | null>(null)
   const relinkInputRef = useRef<HTMLInputElement | null>(null)
-  const relinkTargetRef = useRef<{ expectedKind: AssetKind; layerId: string } | null>(null)
+  const relinkTargetRef = useRef<{
+    expectedKind: AssetKind
+    layerId: string
+  } | null>(null)
   const videoInputRef = useRef<HTMLInputElement | null>(null)
   const [addLayerSelectKey, setAddLayerSelectKey] = useState(0)
-  const [layerActionSelectKeys, setLayerActionSelectKeys] = useState<Record<string, number>>({})
+  const [layerActionSelectKeys, setLayerActionSelectKeys] = useState<
+    Record<string, number>
+  >({})
   const [draggingLayerId, setDraggingLayerId] = useState<string | null>(null)
   const [dropLayerId, setDropLayerId] = useState<string | null>(null)
 
@@ -211,17 +274,21 @@ export function LayerSidebar() {
   const resetLayerParams = useLayerStore((state) => state.resetLayerParams)
   const selectLayer = useLayerStore((state) => state.selectLayer)
   const setLayerAsset = useLayerStore((state) => state.setLayerAsset)
-  const setLayerRuntimeError = useLayerStore((state) => state.setLayerRuntimeError)
+  const setLayerRuntimeError = useLayerStore(
+    (state) => state.setLayerRuntimeError
+  )
   const setLayerVisibility = useLayerStore((state) => state.setLayerVisibility)
   const assets = useAssetStore((state) => state.assets)
   const loadAsset = useAssetStore((state) => state.loadAsset)
   const removeAsset = useAssetStore((state) => state.removeAsset)
   const leftSidebarVisible = useEditorStore((state) => state.sidebars.left)
-  const enterImmersiveCanvas = useEditorStore((state) => state.enterImmersiveCanvas)
+  const enterImmersiveCanvas = useEditorStore(
+    (state) => state.enterImmersiveCanvas
+  )
 
   const assetsById = useMemo(
     () => new Map(assets.map((asset) => [asset.id, asset])),
-    [assets],
+    [assets]
   )
 
   async function handleMediaFile(file: File, layerType: "image" | "video") {
@@ -254,6 +321,10 @@ export function LayerSidebar() {
     addLayer("gradient")
   }
 
+  function handleAddCustomShader() {
+    addLayer("custom-shader")
+  }
+
   function handleAddLayer(action: AddLayerAction) {
     if (action === "image") {
       handleImagePick()
@@ -263,6 +334,8 @@ export function LayerSidebar() {
       addLayer("live")
     } else if (action === "gradient") {
       handleAddGradient()
+    } else if (action === "custom-shader") {
+      handleAddCustomShader()
     } else if (action === "ascii") {
       handleAddAscii()
     } else if (action === "crt") {
@@ -329,7 +402,10 @@ export function LayerSidebar() {
     }
 
     if (inferSelectedFileKind(file) !== target.expectedKind) {
-      setLayerRuntimeError(target.layerId, `Expected a ${target.expectedKind} file.`)
+      setLayerRuntimeError(
+        target.layerId,
+        `Expected a ${target.expectedKind} file.`
+      )
       return
     }
 
@@ -338,7 +414,10 @@ export function LayerSidebar() {
 
       if (asset.kind !== target.expectedKind) {
         removeAsset(asset.id)
-        setLayerRuntimeError(target.layerId, `Expected a ${target.expectedKind} file.`)
+        setLayerRuntimeError(
+          target.layerId,
+          `Expected a ${target.expectedKind} file.`
+        )
         return
       }
 
@@ -346,7 +425,7 @@ export function LayerSidebar() {
     } catch (error) {
       setLayerRuntimeError(
         target.layerId,
-        error instanceof Error ? error.message : "Failed to relink asset.",
+        error instanceof Error ? error.message : "Failed to relink asset."
       )
     }
   }
@@ -393,7 +472,12 @@ export function LayerSidebar() {
         ref={imageInputRef}
         type="file"
       />
-      <input className="hidden" onChange={handleRelinkChange} ref={relinkInputRef} type="file" />
+      <input
+        className="hidden"
+        onChange={handleRelinkChange}
+        ref={relinkInputRef}
+        type="file"
+      />
       <input
         accept="video/mp4,video/webm"
         className="hidden"
@@ -433,15 +517,21 @@ export function LayerSidebar() {
 
         <ul className={s.scrollArea}>
           {layers.map((layer) => {
-            const asset = layer.assetId ? (assetsById.get(layer.assetId) ?? null) : null
+            const asset = layer.assetId
+              ? (assetsById.get(layer.assetId) ?? null)
+              : null
             const hasMissingAsset = Boolean(layer.assetId && !asset)
             const isSelected = selectedLayerId === layer.id
             const isDragging = draggingLayerId === layer.id
-            const isDropTarget = dropLayerId === layer.id && draggingLayerId !== layer.id
+            const isDropTarget =
+              dropLayerId === layer.id && draggingLayerId !== layer.id
             const layerActionOptions = [
               { label: "Reset properties", value: "reset" },
               { label: "Delete layer", value: "delete" },
-            ] as const satisfies readonly { label: ReactNode; value: LayerAction }[]
+            ] as const satisfies readonly {
+              label: ReactNode
+              value: LayerAction
+            }[]
 
             return (
               <li
@@ -450,7 +540,7 @@ export function LayerSidebar() {
                   !layer.locked && s.rowInteractive,
                   isSelected && s.rowSelected,
                   isDragging && s.rowDragging,
-                  isDropTarget && s.rowDropTarget,
+                  isDropTarget && s.rowDropTarget
                 )}
                 draggable={!layer.locked}
                 key={layer.id}
@@ -478,8 +568,14 @@ export function LayerSidebar() {
                   setDropLayerId(null)
                 }}
               >
-                <button className={s.rowButton} onClick={() => selectLayer(layer.id)} type="button">
-                  <span className={cn(s.handle, layer.locked && s.handleLocked)}>
+                <button
+                  className={s.rowButton}
+                  onClick={() => selectLayer(layer.id)}
+                  type="button"
+                >
+                  <span
+                    className={cn(s.handle, layer.locked && s.handleLocked)}
+                  >
                     <DotsSixVerticalIcon size={14} weight="bold" />
                   </span>
 
@@ -496,7 +592,11 @@ export function LayerSidebar() {
                     <Typography className={s.truncate} variant="label">
                       {layer.name}
                     </Typography>
-                    <Typography className={s.truncate} tone="muted" variant="monoXs">
+                    <Typography
+                      className={s.truncate}
+                      tone="muted"
+                      variant="monoXs"
+                    >
                       {getLayerSecondaryText(layer, asset)}
                     </Typography>
                   </div>
@@ -506,9 +606,13 @@ export function LayerSidebar() {
                   key={`${layer.id}:${layerActionSelectKeys[layer.id] ?? 0}`}
                   className={s.rowActionSelect ?? ""}
                   iconClassName={s.rowActionIcon ?? ""}
-                  onValueChange={(value) => handleLayerAction(layer.id, value as LayerAction)}
+                  onValueChange={(value) =>
+                    handleLayerAction(layer.id, value as LayerAction)
+                  }
                   options={layerActionOptions}
-                  placeholder={<DotsThreeVerticalIcon size={14} weight="bold" />}
+                  placeholder={
+                    <DotsThreeVerticalIcon size={14} weight="bold" />
+                  }
                   popupClassName={s.rowActionPopup ?? ""}
                   triggerAriaLabel={`Layer actions for ${layer.name}`}
                   triggerClassName={s.rowActionTrigger ?? ""}

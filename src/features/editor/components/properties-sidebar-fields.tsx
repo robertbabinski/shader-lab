@@ -178,12 +178,7 @@ function shouldRenderCustomPaletteField(
     definition.key === "customColorCount" ||
     definition.key === "customLuminanceBias" ||
     definition.key === "customColor1" ||
-    definition.key === "customColor2" ||
-    definition.key === "bloomEnabled" ||
-    definition.key === "bloomIntensity" ||
-    definition.key === "bloomThreshold" ||
-    definition.key === "bloomRadius" ||
-    definition.key === "bloomSoftness"
+    definition.key === "customColor2"
   ) {
     return layerParams.colorMode === "custom"
   }

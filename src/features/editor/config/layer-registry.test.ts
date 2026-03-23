@@ -112,4 +112,21 @@ describe("CRT layer registry", () => {
       )
     ).toBe(true)
   })
+
+  it("provides hidden defaults for the custom shader source layer", () => {
+    const definition = getLayerDefinition("custom-shader")
+    const params = buildParameterValues(definition.params)
+    const sourceCode = definition.params.find(
+      (param) => param.key === "sourceCode"
+    )
+
+    expect(params.sourceMode).toBe("paste")
+    expect(params.entryExport).toBe("sketch")
+    expect(params.sourceRevision).toBe(0)
+    expect(typeof params.sourceCode).toBe("string")
+    expect(sourceCode).not.toBeUndefined()
+    expect(isParamVisible(sourceCode!, params, [...definition.params])).toBe(
+      false
+    )
+  })
 })

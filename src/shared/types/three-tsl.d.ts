@@ -16,7 +16,10 @@ declare module "three/tsl" {
     ...TSLNode[],
   ]
 
-  export type ShaderNodeFn = (params: ShaderNodeParams, ...rest: unknown[]) => unknown
+  export type ShaderNodeFn = (
+    params: ShaderNodeParams,
+    ...rest: unknown[]
+  ) => unknown
 
   export interface TSLNode {
     a: TSLNode
@@ -84,17 +87,27 @@ declare module "three/tsl" {
   export function clamp(value: unknown, min?: unknown, max?: unknown): TSLNode
   export function cos(value: unknown): TSLNode
   export function cross(left: unknown, right: unknown): TSLNode
+  export function div(left: unknown, right: unknown): TSLNode
   export function dot(left: unknown, right: unknown): TSLNode
   export function Fn(
     fn: ShaderNodeFn,
-    layout?: unknown,
+    layout?: unknown
   ): (...args: unknown[]) => TSLNode
-  export function Loop(config: LoopConfig, callback: (...args: unknown[]) => unknown): TSLNode
+  export function Loop(
+    config: LoopConfig,
+    callback: (...args: unknown[]) => unknown
+  ): TSLNode
   export function exp(value: unknown): TSLNode
   export function fract(value: unknown): TSLNode
   export function float(value?: unknown): TSLNode
   export function floor(value: unknown): TSLNode
-  export function mat2(a?: unknown, b?: unknown, c?: unknown, d?: unknown): TSLNode
+  export function mat2(
+    a?: unknown,
+    b?: unknown,
+    c?: unknown,
+    d?: unknown
+  ): TSLNode
+  export function length(value: unknown): TSLNode
   export function max(left: unknown, right: unknown): TSLNode
   export function min(left: unknown, right: unknown): TSLNode
   export function mix(left: unknown, right: unknown, factor: unknown): TSLNode
@@ -104,10 +117,15 @@ declare module "three/tsl" {
   export function select(
     condition: unknown,
     whenTrue: unknown,
-    whenFalse: unknown,
+    whenFalse: unknown
   ): TSLNode
   export function sin(value: unknown): TSLNode
-  export function smoothstep(edge0: unknown, edge1: unknown, x: unknown): TSLNode
+  export function sign(value: unknown): TSLNode
+  export function smoothstep(
+    edge0: unknown,
+    edge1: unknown,
+    x: unknown
+  ): TSLNode
   export function sqrt(value: unknown): TSLNode
   export function pow(base: unknown, exponent: unknown): TSLNode
   export function step(edge: unknown, value: unknown): TSLNode
@@ -121,6 +139,6 @@ declare module "three/tsl" {
     x?: unknown,
     y?: unknown,
     z?: unknown,
-    w?: unknown,
+    w?: unknown
   ): TSLNode
 }

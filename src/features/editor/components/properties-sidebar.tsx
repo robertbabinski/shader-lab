@@ -4,7 +4,11 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { getLayerDefinition } from "@/features/editor/config/layer-registry"
 import { evaluateTimelineForLayers } from "@/features/editor/timeline/evaluate"
-import type { AnimatedPropertyBinding, ParameterDefinition, ParameterValue } from "@/features/editor/types"
+import type {
+  AnimatedPropertyBinding,
+  ParameterDefinition,
+  ParameterValue,
+} from "@/features/editor/types"
 import { cn } from "@/shared/lib/cn"
 import { GlassPanel } from "@/shared/ui/glass-panel"
 import { useAssetStore } from "@/store/assetStore"
@@ -14,11 +18,11 @@ import {
   createLayerPropertyBinding,
   useTimelineStore,
 } from "@/store/timelineStore"
+import s from "./properties-sidebar.module.css"
 import {
   EmptyPropertiesContent,
   SelectedLayerPropertiesContent,
 } from "./properties-sidebar-content"
-import s from "./properties-sidebar.module.css"
 import {
   createParamTimelineBinding,
   getSelectedAsset,
@@ -71,7 +75,9 @@ export function PropertiesSidebar() {
     }
 
     return selectedDefinition.params.filter((param) =>
-      isParamVisible(param, selectedLayer.params, [...selectedDefinition.params])
+      isParamVisible(param, selectedLayer.params, [
+        ...selectedDefinition.params,
+      ])
     )
   }, [selectedDefinition, selectedLayer])
 
@@ -84,7 +90,9 @@ export function PropertiesSidebar() {
   )
 
   const evaluatedSelectedLayer = useMemo(() => {
-    if (!(timelinePanelOpen && selectedLayer && selectedLayerTracks.length > 0)) {
+    if (
+      !(timelinePanelOpen && selectedLayer && selectedLayerTracks.length > 0)
+    ) {
       return null
     }
 
@@ -306,7 +314,12 @@ export function PropertiesSidebar() {
         layerKind: selectedDefinition?.kind ?? "effect",
         layerName: selectedLayer.name,
         layerRuntimeError: selectedLayer.runtimeError,
-        layerSubtitle: selectedAsset?.fileName ?? "",
+        layerSubtitle:
+          selectedAsset?.fileName ??
+          (selectedLayer.type === "custom-shader" &&
+          typeof selectedLayer.params.sourceFileName === "string"
+            ? selectedLayer.params.sourceFileName
+            : ""),
         layerType: selectedLayer.type,
         onToggleParamGroup: handleToggleParamGroup,
         onTimelineKeyframe: handleTimelineKeyframe,
@@ -372,7 +385,9 @@ export function PropertiesSidebar() {
                 initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10 }}
                 key={selectedLayerContentProps.layerId}
               >
-                <SelectedLayerPropertiesContent {...selectedLayerContentProps} />
+                <SelectedLayerPropertiesContent
+                  {...selectedLayerContentProps}
+                />
               </motion.div>
             ) : (
               <motion.div

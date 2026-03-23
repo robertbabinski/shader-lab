@@ -1,11 +1,12 @@
+import { float, type TSLNode, texture as tslTexture, uv, vec2 } from "three/tsl"
 import * as THREE from "three/webgpu"
-import { float, texture as tslTexture, type TSLNode, uv, vec2 } from "three/tsl"
+import type { RenderableLayerPass } from "@/features/editor/renderer/contracts"
+import { CustomShaderPass } from "@/features/editor/renderer/custom-shader-pass"
 import { GradientPass } from "@/features/editor/renderer/gradient-pass"
 import { LivePass } from "@/features/editor/renderer/live-pass"
 import { MediaPass } from "@/features/editor/renderer/media-pass"
 import type { PassNode } from "@/features/editor/renderer/pass-node"
 import { createPassNode } from "@/features/editor/renderer/pass-node-factory"
-import type { RenderableLayerPass } from "@/features/editor/renderer/contracts"
 import type { EditorLayer, Size } from "@/features/editor/types"
 import { parameterValuesSignature } from "@/features/editor/utils/parameter-schema"
 
@@ -26,6 +27,32 @@ function clampUnit(value: number): number {
 }
 
 function createLayerSignature(layer: RenderableLayerPass): string {
+  if (layer.layer.type === "custom-shader") {
+    return [
+      layer.layer.id,
+      layer.layer.kind,
+      layer.layer.type,
+      layer.layer.visible ? "1" : "0",
+      layer.layer.opacity.toFixed(4),
+      layer.layer.hue.toFixed(4),
+      layer.layer.saturation.toFixed(4),
+      layer.layer.blendMode,
+      layer.layer.compositeMode,
+      typeof layer.params.sourceRevision === "number"
+        ? String(layer.params.sourceRevision)
+        : "0",
+      typeof layer.params.sourceMode === "string"
+        ? layer.params.sourceMode
+        : "paste",
+      typeof layer.params.entryExport === "string"
+        ? layer.params.entryExport
+        : "sketch",
+      typeof layer.params.sourceFileName === "string"
+        ? layer.params.sourceFileName
+        : "",
+    ].join("|")
+  }
+
   return [
     layer.layer.id,
     layer.layer.kind,
@@ -76,8 +103,16 @@ export class PipelineManager {
     baseMesh.frustumCulled = false
     this.baseScene.add(baseMesh)
 
-    this.rtA = new THREE.WebGLRenderTarget(this.width, this.height, RENDER_TARGET_OPTIONS)
-    this.rtB = new THREE.WebGLRenderTarget(this.width, this.height, RENDER_TARGET_OPTIONS)
+    this.rtA = new THREE.WebGLRenderTarget(
+      this.width,
+      this.height,
+      RENDER_TARGET_OPTIONS
+    )
+    this.rtB = new THREE.WebGLRenderTarget(
+      this.width,
+      this.height,
+      RENDER_TARGET_OPTIONS
+    )
 
     this.blitScene = new THREE.Scene()
     this.blitCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
@@ -85,7 +120,10 @@ export class PipelineManager {
     this.blitInputNode = tslTexture(new THREE.Texture(), blitUv)
     this.blitMaterial = new THREE.MeshBasicNodeMaterial()
     this.blitMaterial.colorNode = this.blitInputNode
-    const blitMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.blitMaterial)
+    const blitMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(2, 2),
+      this.blitMaterial
+    )
     blitMesh.frustumCulled = false
     this.blitScene.add(blitMesh)
   }
@@ -139,7 +177,9 @@ export class PipelineManager {
 
   render(time: number, delta: number): boolean {
     const activePasses = this.passes.filter((pass) => pass.enabled)
-    const needsContinuousRender = activePasses.some((pass) => pass.needsContinuousRender())
+    const needsContinuousRender = activePasses.some((pass) =>
+      pass.needsContinuousRender()
+    )
 
     if (!(this.dirty || needsContinuousRender)) {
       return false
@@ -217,14 +257,17 @@ export class PipelineManager {
     this.layerSignatures.clear()
   }
 
-  private applyLayerState(pass: LayerPassNode, renderableLayer: RenderableLayerPass): void {
+  private applyLayerState(
+    pass: LayerPassNode,
+    renderableLayer: RenderableLayerPass
+  ): void {
     pass.enabled = renderableLayer.layer.visible
     pass.updateOpacity(clampUnit(renderableLayer.layer.opacity))
     pass.updateBlendMode(renderableLayer.layer.blendMode)
     pass.updateCompositeMode(renderableLayer.layer.compositeMode)
     pass.updateLayerColorAdjustments(
       renderableLayer.layer.hue,
-      renderableLayer.layer.saturation,
+      renderableLayer.layer.saturation
     )
     pass.updateParams(renderableLayer.params)
 
@@ -250,7 +293,10 @@ export class PipelineManager {
           ? renderableLayer.params.facingMode
           : "user"
 
-      if (facingMode !== pass.getFacingMode() || !pass.needsContinuousRender()) {
+      if (
+        facingMode !== pass.getFacingMode() ||
+        !pass.needsContinuousRender()
+      ) {
         void pass
           .startCamera(facingMode)
           .then(() => {
@@ -268,12 +314,19 @@ export class PipelineManager {
       return createPassNode(layer.id, layer.type)
     }
 
-    if (layer.kind === "source" && (layer.type === "image" || layer.type === "video")) {
+    if (
+      layer.kind === "source" &&
+      (layer.type === "image" || layer.type === "video")
+    ) {
       return new MediaPass(layer.id)
     }
 
     if (layer.kind === "source" && layer.type === "gradient") {
       return new GradientPass(layer.id)
+    }
+
+    if (layer.kind === "source" && layer.type === "custom-shader") {
+      return new CustomShaderPass(layer.id)
     }
 
     if (layer.kind === "source" && layer.type === "live") {

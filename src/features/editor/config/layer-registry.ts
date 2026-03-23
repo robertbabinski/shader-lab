@@ -1,3 +1,8 @@
+import {
+  CUSTOM_SHADER_ENTRY_EXPORT,
+  CUSTOM_SHADER_INTERNAL_VISIBILITY,
+  CUSTOM_SHADER_STARTER,
+} from "@/features/editor/custom-shader/shared"
 import type {
   EffectLayerType,
   LayerDefinition,
@@ -98,6 +103,57 @@ const liveParams = [
     min: -1,
     step: 0.01,
     type: "vec2",
+  },
+] as const satisfies ParameterDefinitions
+
+const customShaderParams = [
+  {
+    animatable: false,
+    defaultValue: "paste",
+    key: "sourceMode",
+    label: "Source Mode",
+    options: [
+      { label: "Paste", value: "paste" },
+      { label: "File", value: "file" },
+    ],
+    type: "select",
+    visibleWhen: CUSTOM_SHADER_INTERNAL_VISIBILITY,
+  },
+  {
+    animatable: false,
+    defaultValue: CUSTOM_SHADER_STARTER,
+    key: "sourceCode",
+    label: "Source Code",
+    type: "text",
+    visibleWhen: CUSTOM_SHADER_INTERNAL_VISIBILITY,
+  },
+  {
+    animatable: false,
+    defaultValue: "",
+    key: "sourceFileName",
+    label: "Source File",
+    type: "text",
+    visibleWhen: CUSTOM_SHADER_INTERNAL_VISIBILITY,
+  },
+  {
+    animatable: false,
+    defaultValue: CUSTOM_SHADER_ENTRY_EXPORT,
+    key: "entryExport",
+    label: "Entry Export",
+    maxLength: 64,
+    type: "text",
+    visibleWhen: CUSTOM_SHADER_INTERNAL_VISIBILITY,
+  },
+  {
+    animatable: false,
+    defaultValue: 0,
+    key: "sourceRevision",
+    label: "Source Revision",
+    max: Number.MAX_SAFE_INTEGER,
+    min: 0,
+    step: 1,
+    type: "number",
+    visibleWhen: CUSTOM_SHADER_INTERNAL_VISIBILITY,
   },
 ] as const satisfies ParameterDefinitions
 
@@ -1777,6 +1833,12 @@ const layerDefinitions: Record<LayerType, LayerDefinition> = {
     kind: "source",
     params: gradientParams,
     type: "gradient",
+  },
+  "custom-shader": {
+    defaultName: "Custom Shader",
+    kind: "source",
+    params: customShaderParams,
+    type: "custom-shader",
   },
   halftone: {
     defaultName: "Halftone",
