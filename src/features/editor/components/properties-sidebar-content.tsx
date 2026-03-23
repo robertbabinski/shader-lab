@@ -1,5 +1,6 @@
 "use client"
 
+import { TextAlignRightIcon } from "@phosphor-icons/react"
 import { AnimatePresence, motion } from "motion/react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { CUSTOM_SHADER_ENTRY_EXPORT } from "@/features/editor/custom-shader/shared"
@@ -13,6 +14,7 @@ import type {
   ParameterValue,
 } from "@/features/editor/types"
 import { Button } from "@/shared/ui/button"
+import { IconButton } from "@/shared/ui/icon-button"
 import { Select } from "@/shared/ui/select"
 import { Slider } from "@/shared/ui/slider"
 import { Typography } from "@/shared/ui/typography"
@@ -144,22 +146,20 @@ function CustomShaderSection({
         </label>
 
         <div className={s.shaderToolbar}>
-          <Button
-            disabled={!isDirty}
-            onClick={() => commitShader()}
-            size="compact"
-            variant="primary"
-          >
-            Apply
-          </Button>
-          <Button
-            onClick={() => commitShader()}
-            size="compact"
-            variant="secondary"
-          >
-            Recompile
-          </Button>
-          <Button
+          <div className={s.shaderToolbarActions}>
+            <Button
+              disabled={!isDirty}
+              onClick={() => commitShader()}
+              size="compact"
+              variant="primary"
+            >
+              Apply
+            </Button>
+          </div>
+
+          <IconButton
+            aria-label="Format sketch source"
+            className={s.shaderFormatButton}
             onClick={() => {
               void formatCustomShaderSource({
                 fileName: "custom-shader.ts",
@@ -177,11 +177,11 @@ function CustomShaderSection({
                   )
                 })
             }}
-            size="compact"
-            variant="neutral"
+            title="Format sketch source"
+            variant="ghost"
           >
-            Format
-          </Button>
+            <TextAlignRightIcon size={14} weight="regular" />
+          </IconButton>
         </div>
 
         <Typography tone="muted" variant="caption">

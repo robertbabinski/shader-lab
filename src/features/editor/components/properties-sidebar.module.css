@@ -304,9 +304,21 @@
 }
 
 .shaderToolbar {
+  align-items: center;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  justify-content: space-between;
+}
+
+.shaderToolbarActions {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+}
+
+.shaderFormatButton {
+  flex: 0 0 auto;
 }
 
 .hiddenInput {
