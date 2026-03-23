@@ -21,6 +21,8 @@ export { bloomEdgePattern } from "@/features/editor/shaders/tsl/patterns/bloom-e
 export { canvasWeavePattern } from "@/features/editor/shaders/tsl/patterns/canvas-weave-pattern"
 export { grainTexturePattern } from "@/features/editor/shaders/tsl/patterns/grain-texture-pattern"
 export { repeatingPattern } from "@/features/editor/shaders/tsl/patterns/repeating-pattern"
+export { complexDiv } from "@/features/editor/shaders/tsl/utils/complex-div"
+export { complexLog } from "@/features/editor/shaders/tsl/utils/complex-log"
 export { rotate } from "@/features/editor/shaders/tsl/utils/rotate"
 export { screenAspectUV } from "@/features/editor/shaders/tsl/utils/screen-aspect-uv"
 export { sdBox2d } from "@/features/editor/shaders/tsl/utils/sd-box-2d"

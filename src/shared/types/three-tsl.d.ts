@@ -84,6 +84,7 @@ declare module "three/tsl" {
   export const PI: TSLNode
   export function abs(value: unknown): TSLNode
   export function add(left: unknown, right: unknown): TSLNode
+  export function atan(value: unknown): TSLNode
   export function clamp(value: unknown, min?: unknown, max?: unknown): TSLNode
   export function cos(value: unknown): TSLNode
   export function cross(left: unknown, right: unknown): TSLNode
@@ -108,6 +109,7 @@ declare module "three/tsl" {
     d?: unknown
   ): TSLNode
   export function length(value: unknown): TSLNode
+  export function log(value: unknown): TSLNode
   export function max(left: unknown, right: unknown): TSLNode
   export function min(left: unknown, right: unknown): TSLNode
   export function mix(left: unknown, right: unknown, factor: unknown): TSLNode
