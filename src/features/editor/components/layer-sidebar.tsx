@@ -34,8 +34,6 @@ import { useEditorStore } from "@/store/editorStore"
 import { useLayerStore } from "@/store/layerStore"
 import s from "./layer-sidebar.module.css"
 
-const IS_DEV = process.env.NODE_ENV === "development"
-
 type AddLayerAction =
   | "ascii"
   | "crt"
@@ -87,19 +85,15 @@ const addLayerOptions = [
     ),
     value: "gradient",
   },
-  ...(IS_DEV
-    ? [
-        {
-          label: (
-            <span className={s.menuButton}>
-              <Sparkle size={14} weight="regular" />
-              Custom Shader
-            </span>
-          ),
-          value: "custom-shader" as const,
-        },
-      ]
-    : []),
+  {
+    label: (
+      <span className={s.menuButton}>
+        <Sparkle size={14} weight="regular" />
+        Custom Shader
+      </span>
+    ),
+    value: "custom-shader" as const,
+  },
   {
     label: (
       <span className={s.menuButton}>

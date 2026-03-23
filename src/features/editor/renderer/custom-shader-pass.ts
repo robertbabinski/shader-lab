@@ -7,8 +7,6 @@ import { useLayerStore } from "@/store/layerStore"
 
 type Node = TSLNode
 
-const IS_DEV = process.env.NODE_ENV === "development"
-
 export class CustomShaderPass extends PassNode {
   private compiledSketch: (() => Node) | null = null
   private compileRequestId = 0
@@ -26,18 +24,6 @@ export class CustomShaderPass extends PassNode {
   }
 
   override updateParams(params: LayerParameterValues): void {
-    if (!IS_DEV) {
-      this.compiledSketch = null
-      useLayerStore
-        .getState()
-        .setLayerRuntimeError(
-          this.layerId,
-          "Custom shader layers are only available in development."
-        )
-      this.rebuildEffectNode()
-      return
-    }
-
     const sourceCode =
       typeof params.sourceCode === "string" ? params.sourceCode : ""
     const entryExport =
