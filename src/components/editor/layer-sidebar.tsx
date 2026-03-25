@@ -1,37 +1,36 @@
 "use client"
 
 import {
-  Camera,
+  CameraIcon,
   DotsSixVerticalIcon,
   DotsThreeVerticalIcon,
-  Eye,
-  EyeSlash,
+  EyeIcon,
+  EyeSlashIcon,
   FolderIcon,
-  ImageSquare,
-  Plus,
+  ImageSquareIcon,
+  PlusIcon,
   SidebarSimpleIcon,
-  Sparkle,
+  SparkleIcon,
+  TextTIcon,
 } from "@phosphor-icons/react"
+import { Reorder, useDragControls } from "motion/react"
 import {
   type ChangeEvent,
   type ReactNode,
+  type PointerEvent as ReactPointerEvent,
   useMemo,
   useRef,
   useState,
 } from "react"
-import type {
-  AssetKind,
-  EditorAsset,
-  EditorLayer,
-} from "@/types/editor"
-import { cn } from "@/lib/cn"
 import { GlassPanel } from "@/components/ui/glass-panel"
 import { IconButton } from "@/components/ui/icon-button"
 import { Select } from "@/components/ui/select"
 import { Typography } from "@/components/ui/typography"
+import { cn } from "@/lib/cn"
 import { useAssetStore } from "@/store/asset-store"
 import { useEditorStore } from "@/store/editor-store"
 import { useLayerStore } from "@/store/layer-store"
+import type { AssetKind, EditorAsset, EditorLayer } from "@/types/editor"
 
 type AddLayerAction =
   | "ascii"
@@ -41,9 +40,12 @@ type AddLayerAction =
   | "gradient"
   | "halftone"
   | "image"
+  | "ink"
   | "live"
   | "particle-grid"
+  | "pattern"
   | "pixel-sorting"
+  | "text"
   | "video"
 type LayerAction = "delete" | "reset"
 
@@ -55,7 +57,7 @@ const addLayerOptions = [
   {
     label: (
       <span className={menuButtonClassName}>
-        <ImageSquare size={14} weight="regular" />
+        <ImageSquareIcon size={14} weight="regular" />
         Image
       </span>
     ),
@@ -64,7 +66,7 @@ const addLayerOptions = [
   {
     label: (
       <span className={menuButtonClassName}>
-        <ImageSquare size={14} weight="regular" />
+        <ImageSquareIcon size={14} weight="regular" />
         Video
       </span>
     ),
@@ -73,8 +75,8 @@ const addLayerOptions = [
   {
     label: (
       <span className={menuButtonClassName}>
-        <Camera size={14} weight="regular" />
-        Live Camera
+        <CameraIcon size={14} weight="regular" />
+        Live CameraIcon
       </span>
     ),
     value: "live",
@@ -82,7 +84,16 @@ const addLayerOptions = [
   {
     label: (
       <span className={menuButtonClassName}>
-        <Sparkle size={14} weight="regular" />
+        <TextTIcon size={14} weight="regular" />
+        Text
+      </span>
+    ),
+    value: "text",
+  },
+  {
+    label: (
+      <span className={menuButtonClassName}>
+        <SparkleIcon size={14} weight="regular" />
         Mesh Gradient
       </span>
     ),
@@ -91,7 +102,16 @@ const addLayerOptions = [
   {
     label: (
       <span className={menuButtonClassName}>
-        <Sparkle size={14} weight="regular" />
+        <SparkleIcon size={14} weight="regular" />
+        Ink
+      </span>
+    ),
+    value: "ink",
+  },
+  {
+    label: (
+      <span className={menuButtonClassName}>
+        <SparkleIcon size={14} weight="regular" />
         Custom Shader
       </span>
     ),
@@ -100,7 +120,7 @@ const addLayerOptions = [
   {
     label: (
       <span className={menuButtonClassName}>
-        <Sparkle size={14} weight="regular" />
+        <SparkleIcon size={14} weight="regular" />
         ASCII
       </span>
     ),
@@ -109,7 +129,16 @@ const addLayerOptions = [
   {
     label: (
       <span className={menuButtonClassName}>
-        <Sparkle size={14} weight="regular" />
+        <SparkleIcon size={14} weight="regular" />
+        Pattern
+      </span>
+    ),
+    value: "pattern",
+  },
+  {
+    label: (
+      <span className={menuButtonClassName}>
+        <SparkleIcon size={14} weight="regular" />
         CRT
       </span>
     ),
@@ -118,7 +147,7 @@ const addLayerOptions = [
   {
     label: (
       <span className={menuButtonClassName}>
-        <Sparkle size={14} weight="regular" />
+        <SparkleIcon size={14} weight="regular" />
         Dithering
       </span>
     ),
@@ -127,7 +156,7 @@ const addLayerOptions = [
   {
     label: (
       <span className={menuButtonClassName}>
-        <Sparkle size={14} weight="regular" />
+        <SparkleIcon size={14} weight="regular" />
         Halftone
       </span>
     ),
@@ -136,7 +165,7 @@ const addLayerOptions = [
   {
     label: (
       <span className={menuButtonClassName}>
-        <Sparkle size={14} weight="regular" />
+        <SparkleIcon size={14} weight="regular" />
         Particle Grid
       </span>
     ),
@@ -145,7 +174,7 @@ const addLayerOptions = [
   {
     label: (
       <span className={menuButtonClassName}>
-        <Sparkle size={14} weight="regular" />
+        <SparkleIcon size={14} weight="regular" />
         Pixel Sorting
       </span>
     ),
@@ -181,6 +210,13 @@ function getLayerSecondaryText(
     )
   }
 
+  if (layer.type === "text") {
+    return (
+      (typeof layer.params.text === "string" && layer.params.text.trim()) ||
+      "text"
+    )
+  }
+
   return layer.type.replaceAll("-", " ")
 }
 
@@ -189,10 +225,7 @@ function getThumbnailClassName(
   asset: EditorAsset | null
 ): string {
   if (asset?.kind === "image" || asset?.kind === "video") {
-    return cn(
-      thumbnailBaseClassName,
-      "bg-cover bg-center"
-    )
+    return cn(thumbnailBaseClassName, "bg-center bg-cover")
   }
 
   if (layer.type === "model") {
@@ -257,6 +290,151 @@ function inferSelectedFileKind(file: File): AssetKind | null {
   return null
 }
 
+type LayerListItemProps = {
+  asset: EditorAsset | null
+  hasMissingAsset: boolean
+  isSelected: boolean
+  layer: EditorLayer
+  layerActionKey: number
+  onLayerAction: (layerId: string, action: LayerAction) => void
+  onRelinkPick: (layer: EditorLayer) => void
+  onSelectLayer: (layerId: string) => void
+  onSetLayerVisibility: (layerId: string, visible: boolean) => void
+}
+
+function LayerListItem({
+  asset,
+  hasMissingAsset,
+  isSelected,
+  layer,
+  layerActionKey,
+  onLayerAction,
+  onRelinkPick,
+  onSelectLayer,
+  onSetLayerVisibility,
+}: LayerListItemProps) {
+  const dragControls = useDragControls()
+  const layerActionOptions = [
+    { label: "Reset properties", value: "reset" },
+    { label: "Delete layer", value: "delete" },
+  ] as const satisfies readonly {
+    label: ReactNode
+    value: LayerAction
+  }[]
+
+  function handlePointerDown(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (layer.locked) {
+      return
+    }
+
+    dragControls.start(event)
+  }
+
+  return (
+    <Reorder.Item
+      as="li"
+      className={cn(
+        "relative grid min-h-11 grid-cols-[minmax(0,1fr)_28px_28px] items-center gap-[var(--ds-space-2)] rounded-[var(--ds-radius-control)] border border-transparent px-2 py-[6px] transition-[background-color,border-color,box-shadow] duration-160 ease-[var(--ease-out-cubic)]",
+        !layer.locked &&
+          "cursor-pointer hover:border-[var(--ds-border-subtle)] hover:bg-[var(--ds-color-surface-subtle)]",
+        isSelected &&
+          "border-[var(--ds-border-active)] bg-[var(--ds-color-surface-active)]"
+      )}
+      drag={layer.locked ? false : "y"}
+      dragControls={dragControls}
+      dragListener={false}
+      layout="position"
+      style={{ zIndex: 0 }}
+      value={layer}
+    >
+      <div className="grid min-w-0 grid-cols-[14px_minmax(0,1fr)] items-center gap-[var(--ds-space-2)]">
+        <button
+          aria-label={`Reorder ${layer.name}`}
+          className={cn(
+            "inline-flex h-[14px] w-[14px] touch-none items-center justify-center bg-transparent p-0 text-[var(--ds-color-text-muted)]",
+            !layer.locked && "cursor-grab active:cursor-grabbing",
+            layer.locked && "text-[var(--ds-color-text-disabled)]"
+          )}
+          onPointerDown={handlePointerDown}
+          type="button"
+        >
+          <DotsSixVerticalIcon size={14} weight="bold" />
+        </button>
+
+        <button
+          className="grid min-w-0 grid-cols-[28px_minmax(0,1fr)] items-center gap-[var(--ds-space-2)] bg-transparent p-0 text-left text-inherit"
+          onClick={() => onSelectLayer(layer.id)}
+          type="button"
+        >
+          <div
+            className={getThumbnailClassName(layer, asset)}
+            style={
+              asset?.kind === "image" || asset?.kind === "video"
+                ? { backgroundImage: `url("${asset.url}")` }
+                : undefined
+            }
+          />
+
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <Typography
+              className="overflow-hidden text-ellipsis whitespace-nowrap"
+              variant="label"
+            >
+              {layer.name}
+            </Typography>
+            <Typography
+              className="overflow-hidden text-ellipsis whitespace-nowrap"
+              tone="muted"
+              variant="monoXs"
+            >
+              {getLayerSecondaryText(layer, asset)}
+            </Typography>
+          </div>
+        </button>
+      </div>
+
+      <Select
+        key={`${layer.id}:${layerActionKey}`}
+        onValueChange={(value) => onLayerAction(layer.id, value as LayerAction)}
+        options={layerActionOptions}
+        placeholder={<DotsThreeVerticalIcon size={14} weight="bold" />}
+        popupClassName="min-w-[152px]"
+        triggerAriaLabel={`Layer actions for ${layer.name}`}
+        triggerVariant="icon"
+        valueClassName="inline-flex items-center justify-center leading-none text-[var(--ds-color-text-tertiary)] [&_svg]:h-[14px] [&_svg]:w-[14px]"
+      />
+
+      {hasMissingAsset ? (
+        <IconButton
+          aria-label={`Relink missing asset for ${layer.name}`}
+          onClick={(event) => {
+            event.stopPropagation()
+            onRelinkPick(layer)
+          }}
+          variant="ghost"
+        >
+          <FolderIcon size={14} weight="regular" />
+        </IconButton>
+      ) : (
+        <IconButton
+          aria-label={layer.visible ? "Hide layer" : "Show layer"}
+          onClick={(event) => {
+            event.stopPropagation()
+            onSetLayerVisibility(layer.id, !layer.visible)
+          }}
+          variant="ghost"
+        >
+          {layer.visible ? (
+            <EyeIcon size={14} weight="regular" />
+          ) : (
+            <EyeSlashIcon size={14} weight="regular" />
+          )}
+        </IconButton>
+      )}
+    </Reorder.Item>
+  )
+}
+
 export function LayerSidebar() {
   const imageInputRef = useRef<HTMLInputElement | null>(null)
   const relinkInputRef = useRef<HTMLInputElement | null>(null)
@@ -269,14 +447,13 @@ export function LayerSidebar() {
   const [layerActionSelectKeys, setLayerActionSelectKeys] = useState<
     Record<string, number>
   >({})
-  const [draggingLayerId, setDraggingLayerId] = useState<string | null>(null)
-  const [dropLayerId, setDropLayerId] = useState<string | null>(null)
 
   const layers = useLayerStore((state) => state.layers)
+  const hoveredLayerId = useLayerStore((state) => state.hoveredLayerId)
   const selectedLayerId = useLayerStore((state) => state.selectedLayerId)
   const addLayer = useLayerStore((state) => state.addLayer)
-  const reorderLayers = useLayerStore((state) => state.reorderLayers)
   const removeLayer = useLayerStore((state) => state.removeLayer)
+  const replaceState = useLayerStore((state) => state.replaceState)
   const resetLayerParams = useLayerStore((state) => state.resetLayerParams)
   const selectLayer = useLayerStore((state) => state.selectLayer)
   const setLayerAsset = useLayerStore((state) => state.setLayerAsset)
@@ -338,12 +515,18 @@ export function LayerSidebar() {
       handleVideoPick()
     } else if (action === "live") {
       addLayer("live")
+    } else if (action === "text") {
+      addLayer("text")
     } else if (action === "gradient") {
       handleAddGradient()
+    } else if (action === "ink") {
+      addLayer("ink")
     } else if (action === "custom-shader") {
       handleAddCustomShader()
     } else if (action === "ascii") {
       handleAddAscii()
+    } else if (action === "pattern") {
+      addLayer("pattern")
     } else if (action === "crt") {
       addLayer("crt")
     } else if (action === "halftone") {
@@ -454,19 +637,8 @@ export function LayerSidebar() {
     }
   }
 
-  function commitReorder(targetLayerId: string) {
-    if (!draggingLayerId || draggingLayerId === targetLayerId) {
-      return
-    }
-
-    const fromIndex = layers.findIndex((layer) => layer.id === draggingLayerId)
-    const toIndex = layers.findIndex((layer) => layer.id === targetLayerId)
-
-    if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) {
-      return
-    }
-
-    reorderLayers(fromIndex, toIndex)
+  function handleReorder(nextLayers: EditorLayer[]) {
+    replaceState(nextLayers, selectedLayerId, hoveredLayerId)
   }
 
   return (
@@ -504,7 +676,7 @@ export function LayerSidebar() {
         )}
         variant="panel"
       >
-        <div className="flex min-h-11 items-center justify-between border-b border-[var(--ds-border-divider)] pr-3 pl-[var(--ds-space-4)]">
+        <div className="flex min-h-11 items-center justify-between border-[var(--ds-border-divider)] border-b pr-3 pl-[var(--ds-space-4)]">
           <Typography className="uppercase" tone="secondary" variant="overline">
             Layers
           </Typography>
@@ -522,7 +694,7 @@ export function LayerSidebar() {
               className="pointer-events-auto"
               onValueChange={(value) => handleAddLayer(value as AddLayerAction)}
               options={addLayerOptions}
-              placeholder={<Plus size={14} weight="bold" />}
+              placeholder={<PlusIcon size={14} weight="bold" />}
               popupClassName="min-w-[152px]"
               triggerAriaLabel="Add layer"
               triggerVariant="icon"
@@ -531,145 +703,36 @@ export function LayerSidebar() {
           </div>
         </div>
 
-        <ul className="flex max-h-[min(52vh,480px)] flex-col gap-0.5 overflow-y-auto p-1">
+        <Reorder.Group
+          axis="y"
+          as="ul"
+          className="flex max-h-[min(52vh,480px)] flex-col gap-0.5 overflow-y-auto p-1"
+          onReorder={handleReorder}
+          values={layers}
+        >
           {layers.map((layer) => {
             const asset = layer.assetId
               ? (assetsById.get(layer.assetId) ?? null)
               : null
             const hasMissingAsset = Boolean(layer.assetId && !asset)
             const isSelected = selectedLayerId === layer.id
-            const isDragging = draggingLayerId === layer.id
-            const isDropTarget =
-              dropLayerId === layer.id && draggingLayerId !== layer.id
-            const layerActionOptions = [
-              { label: "Reset properties", value: "reset" },
-              { label: "Delete layer", value: "delete" },
-            ] as const satisfies readonly {
-              label: ReactNode
-              value: LayerAction
-            }[]
 
             return (
-              <li
-                className={cn(
-                  "grid min-h-11 grid-cols-[minmax(0,1fr)_28px_28px] items-center gap-[var(--ds-space-2)] rounded-[var(--ds-radius-control)] border border-transparent px-2 py-[6px] transition-[background-color,border-color,transform] duration-160 ease-[var(--ease-out-cubic)]",
-                  !layer.locked && "cursor-pointer hover:bg-[var(--ds-color-surface-subtle)] hover:border-[var(--ds-border-subtle)]",
-                  isSelected && "bg-[var(--ds-color-surface-active)] border-[var(--ds-border-active)]",
-                  isDragging && "opacity-55",
-                  isDropTarget && "border-[var(--ds-border-hover)] shadow-[inset_0_0_0_1px_rgb(255_255_255_/_0.03)]"
-                )}
-                draggable={!layer.locked}
+              <LayerListItem
+                asset={asset}
+                hasMissingAsset={hasMissingAsset}
+                isSelected={isSelected}
                 key={layer.id}
-                onDragEnd={() => {
-                  setDraggingLayerId(null)
-                  setDropLayerId(null)
-                }}
-                onDragOver={(event) => {
-                  event.preventDefault()
-                  if (draggingLayerId && draggingLayerId !== layer.id) {
-                    setDropLayerId(layer.id)
-                  }
-                }}
-                onDragStart={(event) => {
-                  event.dataTransfer.effectAllowed = "move"
-                  event.dataTransfer.setData("text/plain", layer.id)
-                  setDraggingLayerId(layer.id)
-                  setDropLayerId(layer.id)
-                  selectLayer(layer.id)
-                }}
-                onDrop={(event) => {
-                  event.preventDefault()
-                  commitReorder(layer.id)
-                  setDraggingLayerId(null)
-                  setDropLayerId(null)
-                }}
-              >
-                <button
-                  className="grid min-w-0 grid-cols-[14px_28px_minmax(0,1fr)] items-center gap-[var(--ds-space-2)] bg-transparent p-0 text-left text-inherit"
-                  onClick={() => selectLayer(layer.id)}
-                  type="button"
-                >
-                  <span
-                    className={cn(
-                      "inline-flex h-[14px] w-[14px] items-center justify-center text-[var(--ds-color-text-muted)]",
-                      layer.locked && "text-[var(--ds-color-text-disabled)]"
-                    )}
-                  >
-                    <DotsSixVerticalIcon size={14} weight="bold" />
-                  </span>
-
-                  <div
-                    className={getThumbnailClassName(layer, asset)}
-                    style={
-                      asset?.kind === "image" || asset?.kind === "video"
-                        ? { backgroundImage: `url("${asset.url}")` }
-                        : undefined
-                    }
-                  />
-
-                  <div className="flex min-w-0 flex-col gap-0.5">
-                    <Typography
-                      className="overflow-hidden text-ellipsis whitespace-nowrap"
-                      variant="label"
-                    >
-                      {layer.name}
-                    </Typography>
-                    <Typography
-                      className="overflow-hidden text-ellipsis whitespace-nowrap"
-                      tone="muted"
-                      variant="monoXs"
-                    >
-                      {getLayerSecondaryText(layer, asset)}
-                    </Typography>
-                  </div>
-                </button>
-
-                <Select
-                  key={`${layer.id}:${layerActionSelectKeys[layer.id] ?? 0}`}
-                  onValueChange={(value) =>
-                    handleLayerAction(layer.id, value as LayerAction)
-                  }
-                  options={layerActionOptions}
-                  placeholder={
-                    <DotsThreeVerticalIcon size={14} weight="bold" />
-                  }
-                  popupClassName="min-w-[152px]"
-                  triggerAriaLabel={`Layer actions for ${layer.name}`}
-                  triggerVariant="icon"
-                  valueClassName="inline-flex items-center justify-center leading-none text-[var(--ds-color-text-tertiary)] [&_svg]:h-[14px] [&_svg]:w-[14px]"
-                />
-
-                {hasMissingAsset ? (
-                  <IconButton
-                    aria-label={`Relink missing asset for ${layer.name}`}
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      handleRelinkPick(layer)
-                    }}
-                    variant="ghost"
-                  >
-                    <FolderIcon size={14} weight="regular" />
-                  </IconButton>
-                ) : (
-                  <IconButton
-                    aria-label={layer.visible ? "Hide layer" : "Show layer"}
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      setLayerVisibility(layer.id, !layer.visible)
-                    }}
-                    variant="ghost"
-                  >
-                    {layer.visible ? (
-                      <Eye size={14} weight="regular" />
-                    ) : (
-                      <EyeSlash size={14} weight="regular" />
-                    )}
-                  </IconButton>
-                )}
-              </li>
+                layer={layer}
+                layerActionKey={layerActionSelectKeys[layer.id] ?? 0}
+                onLayerAction={handleLayerAction}
+                onRelinkPick={handleRelinkPick}
+                onSelectLayer={selectLayer}
+                onSetLayerVisibility={setLayerVisibility}
+              />
             )
           })}
-        </ul>
+        </Reorder.Group>
       </GlassPanel>
     </aside>
   )
