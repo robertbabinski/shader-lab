@@ -1,6 +1,6 @@
 import * as THREE from "three/webgpu"
-import { PipelineManager } from "@/renderer/pipeline-manager"
 import type { EditorRenderer, RendererFrame } from "@/renderer/contracts"
+import { PipelineManager } from "@/renderer/pipeline-manager"
 import type { Size } from "@/types/editor"
 
 export function browserSupportsWebGPU(): boolean {
@@ -8,7 +8,7 @@ export function browserSupportsWebGPU(): boolean {
 }
 
 export async function createWebGPURenderer(
-  canvas: HTMLCanvasElement,
+  canvas: HTMLCanvasElement
 ): Promise<EditorRenderer> {
   const renderer = new THREE.WebGPURenderer({
     alpha: false,
@@ -35,6 +35,8 @@ export async function createWebGPURenderer(
       }
 
       pipeline.updateLogicalSize(frame.logicalSize)
+      pipeline.updateBackgroundColor(frame.sceneConfig.backgroundColor)
+      pipeline.updateSceneConfig(frame.sceneConfig)
       pipeline.syncLayers([...frame.layers].reverse())
       pipeline.render(frame.clock.time, frame.clock.delta)
     },

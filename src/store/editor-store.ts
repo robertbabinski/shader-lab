@@ -1,11 +1,14 @@
 import { create } from "zustand"
 import { getDefaultProjectComposition } from "@/lib/editor/default-project"
+import { DEFAULT_CANVAS_SIZE } from "@/lib/editor/layers"
 import type {
   EditorStateSnapshot,
   RenderScale,
+  SceneConfig,
+  SidebarView,
   WebGPUStatus,
 } from "@/types/editor"
-import { DEFAULT_CANVAS_SIZE } from "@/lib/editor/layers"
+import { DEFAULT_SCENE_CONFIG } from "@/types/editor"
 
 const DEFAULT_PROJECT_COMPOSITION = getDefaultProjectComposition()
 
@@ -29,10 +32,12 @@ export interface EditorStoreActions {
   setSidebarOpen: (side: "left" | "right", open: boolean) => void
   setTheme: (theme: "dark" | "light") => void
   setTimelinePanelOpen: (open: boolean) => void
+  setSidebarView: (view: SidebarView) => void
   setWebGPUStatus: (status: WebGPUStatus, error?: string | null) => void
   setZoom: (zoom: number) => void
   toggleTimelinePanel: () => void
   toggleSidebar: (side: "left" | "right") => void
+  updateSceneConfig: (updates: Partial<SceneConfig>) => void
 }
 
 export type EditorStore = EditorStoreState & EditorStoreActions
@@ -55,10 +60,12 @@ export const useEditorStore = create<EditorStore>((set) => ({
   outputSize: DEFAULT_PROJECT_COMPOSITION,
   panOffset: { x: 0, y: 0 },
   renderScale: 1,
+  sceneConfig: DEFAULT_SCENE_CONFIG,
   sidebars: {
     left: true,
     right: true,
   },
+  sidebarView: "properties",
   theme: "dark",
   timelinePanelOpen: false,
   webgpuError: null,
@@ -205,10 +212,20 @@ export const useEditorStore = create<EditorStore>((set) => ({
     }))
   },
 
+  setSidebarView: (sidebarView) => {
+    set({ sidebarView })
+  },
+
   setTheme: (theme) => {
     set({
       theme,
     })
+  },
+
+  updateSceneConfig: (updates) => {
+    set((state) => ({
+      sceneConfig: { ...state.sceneConfig, ...updates },
+    }))
   },
 
   setFps: (fps) => {

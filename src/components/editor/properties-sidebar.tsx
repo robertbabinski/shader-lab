@@ -1,16 +1,13 @@
 "use client"
 
+import { GearSixIcon } from "@phosphor-icons/react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { GlassPanel } from "@/components/ui/glass-panel"
+import { IconButton } from "@/components/ui/icon-button"
+import { cn } from "@/lib/cn"
 import { getLayerDefinition } from "@/lib/editor/config/layer-registry"
 import { evaluateTimelineForLayers } from "@/lib/editor/timeline/evaluate"
-import type {
-  AnimatedPropertyBinding,
-  ParameterDefinition,
-  ParameterValue,
-} from "@/types/editor"
-import { cn } from "@/lib/cn"
-import { GlassPanel } from "@/components/ui/glass-panel"
 import { useAssetStore } from "@/store/asset-store"
 import { useEditorStore } from "@/store/editor-store"
 import { useLayerStore } from "@/store/layer-store"
@@ -18,6 +15,11 @@ import {
   createLayerPropertyBinding,
   useTimelineStore,
 } from "@/store/timeline-store"
+import type {
+  AnimatedPropertyBinding,
+  ParameterDefinition,
+  ParameterValue,
+} from "@/types/editor"
 import {
   EmptyPropertiesContent,
   SelectedLayerPropertiesContent,
@@ -28,6 +30,7 @@ import {
   hasTrackForBinding,
   isParamVisible,
 } from "./properties-sidebar-utils"
+import { SceneConfigContent } from "./scene-config-content"
 
 export function PropertiesSidebar() {
   const reduceMotion = useReducedMotion() ?? false
@@ -37,20 +40,19 @@ export function PropertiesSidebar() {
   const [panelHeight, setPanelHeight] = useState<number | null>(null)
   const viewResizeObserverRef = useRef<ResizeObserver | null>(null)
   const rightSidebarVisible = useEditorStore((state) => state.sidebars.right)
+  const sidebarView = useEditorStore((state) => state.sidebarView)
+  const setSidebarView = useEditorStore((state) => state.setSidebarView)
   const timelinePanelOpen = useEditorStore((state) => state.timelinePanelOpen)
   const selectedLayerId = useLayerStore((state) => state.selectedLayerId)
-  const selectedLayer = useLayerStore((state) =>
-    selectedLayerId
-      ? (state.layers.find((layer) => layer.id === selectedLayerId) ?? null)
-      : null
-  )
+  const selectedLayer = useLayerStore((state) => {
+    if (!selectedLayerId) return null
+    return state.layers.find((layer) => layer.id === selectedLayerId) ?? null
+  })
   const setLayerBlendMode = useLayerStore((state) => state.setLayerBlendMode)
   const setLayerCompositeMode = useLayerStore(
     (state) => state.setLayerCompositeMode
   )
-  const setLayerMaskConfig = useLayerStore(
-    (state) => state.setLayerMaskConfig
-  )
+  const setLayerMaskConfig = useLayerStore((state) => state.setLayerMaskConfig)
   const setLayerHue = useLayerStore((state) => state.setLayerHue)
   const setLayerOpacity = useLayerStore((state) => state.setLayerOpacity)
   const setLayerSaturation = useLayerStore((state) => state.setLayerSaturation)
@@ -210,6 +212,12 @@ export function PropertiesSidebar() {
   }, [])
 
   useEffect(() => {
+    if (selectedLayerId) {
+      setSidebarView("properties")
+    }
+  }, [selectedLayerId, setSidebarView])
+
+  useEffect(() => {
     return () => {
       viewResizeObserverRef.current?.disconnect()
     }
@@ -361,6 +369,54 @@ export function PropertiesSidebar() {
       }
     : null
 
+  const renderInvisibleContent = () => {
+    if (sidebarView === "scene") return <SceneConfigContent />
+    if (selectedLayerContentProps) {
+      return <SelectedLayerPropertiesContent {...selectedLayerContentProps} />
+    }
+    return <EmptyPropertiesContent />
+  }
+
+  const renderAnimatedContent = () => {
+    if (sidebarView === "scene") {
+      return (
+        <motion.div
+          animate={enterAnimation}
+          className="flex h-full min-h-0 flex-col"
+          exit={exitAnimation}
+          initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10 }}
+          key="scene"
+        >
+          <SceneConfigContent />
+        </motion.div>
+      )
+    }
+    if (selectedLayerContentProps) {
+      return (
+        <motion.div
+          animate={enterAnimation}
+          className="flex h-full min-h-0 flex-col"
+          exit={exitAnimation}
+          initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10 }}
+          key={selectedLayerContentProps.layerId}
+        >
+          <SelectedLayerPropertiesContent {...selectedLayerContentProps} />
+        </motion.div>
+      )
+    }
+    return (
+      <motion.div
+        animate={enterAnimation}
+        className="flex h-full min-h-0 flex-col"
+        exit={exitAnimation}
+        initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10 }}
+        key="empty"
+      >
+        <EmptyPropertiesContent />
+      </motion.div>
+    )
+  }
+
   return (
     <aside
       className={cn(
@@ -373,11 +429,7 @@ export function PropertiesSidebar() {
         className="pointer-events-none invisible absolute top-0 left-0 -z-1 w-full"
       >
         <div className="w-full" ref={bindMeasuredView}>
-          {selectedLayerContentProps ? (
-            <SelectedLayerPropertiesContent {...selectedLayerContentProps} />
-          ) : (
-            <EmptyPropertiesContent />
-          )}
+          {renderInvisibleContent()}
         </div>
       </div>
 
@@ -394,30 +446,26 @@ export function PropertiesSidebar() {
           className="flex h-full min-h-0 flex-col gap-0 p-0"
           variant="panel"
         >
+          <div className="flex items-center justify-end border-b border-[var(--ds-border-divider)] px-3 py-1.5">
+            <IconButton
+              aria-label="Scene settings"
+              className={cn(
+                "h-7 w-7",
+                sidebarView === "scene" && "bg-white/10"
+              )}
+              onClick={() =>
+                setSidebarView(sidebarView === "scene" ? "properties" : "scene")
+              }
+              variant="default"
+            >
+              <GearSixIcon
+                size={16}
+                weight={sidebarView === "scene" ? "fill" : "bold"}
+              />
+            </IconButton>
+          </div>
           <AnimatePresence initial={false} mode="wait">
-            {selectedLayerContentProps ? (
-              <motion.div
-                animate={enterAnimation}
-                className="flex h-full min-h-0 flex-col"
-                exit={exitAnimation}
-                initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10 }}
-                key={selectedLayerContentProps.layerId}
-              >
-                <SelectedLayerPropertiesContent
-                  {...selectedLayerContentProps}
-                />
-              </motion.div>
-            ) : (
-              <motion.div
-                animate={enterAnimation}
-                className="flex h-full min-h-0 flex-col"
-                exit={exitAnimation}
-                initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10 }}
-                key="empty"
-              >
-                <EmptyPropertiesContent />
-              </motion.div>
-            )}
+            {renderAnimatedContent()}
           </AnimatePresence>
         </GlassPanel>
       </motion.div>

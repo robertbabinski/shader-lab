@@ -1,11 +1,17 @@
 "use client"
 
+import { buildRendererFrame } from "@/renderer/contracts"
 import {
   browserSupportsWebGPU,
   createWebGPURenderer,
 } from "@/renderer/create-webgpu-renderer"
-import { buildRendererFrame } from "@/renderer/contracts"
-import type { EditorAsset, EditorLayer, Size, TimelineStateSnapshot } from "@/types/editor"
+import type {
+  EditorAsset,
+  EditorLayer,
+  SceneConfig,
+  Size,
+  TimelineStateSnapshot,
+} from "@/types/editor"
 
 export type ExportAspectPreset = "16:9" | "1:1" | "4:5" | "9:16" | "original"
 export type ExportQualityPreset = "draft" | "high" | "standard" | "ultra"
@@ -30,6 +36,7 @@ type RenderProjectState = {
   assets: EditorAsset[]
   compositionSize: Size
   layers: EditorLayer[]
+  sceneConfig: SceneConfig
   timeline: TimelineStateSnapshot
 }
 
@@ -61,7 +68,10 @@ function clampDimension(value: number): number {
   return Math.max(1, Math.round(value))
 }
 
-function getAspectRatio(compositionSize: Size, aspectPreset: ExportAspectPreset): number {
+function getAspectRatio(
+  compositionSize: Size,
+  aspectPreset: ExportAspectPreset
+): number {
   switch (aspectPreset) {
     case "1:1":
       return 1
@@ -78,7 +88,7 @@ function getAspectRatio(compositionSize: Size, aspectPreset: ExportAspectPreset)
 
 export function getAspectRatioForPreset(
   compositionSize: Size,
-  aspectPreset: ExportAspectPreset,
+  aspectPreset: ExportAspectPreset
 ): number {
   return getAspectRatio(compositionSize, aspectPreset)
 }
@@ -86,11 +96,13 @@ export function getAspectRatioForPreset(
 export function getDimensionsForPreset(
   compositionSize: Size,
   aspectPreset: ExportAspectPreset,
-  qualityPreset: ExportQualityPreset,
+  qualityPreset: ExportQualityPreset
 ): Size {
   const ratio = getAspectRatio(compositionSize, aspectPreset)
   const longEdge = Math.max(compositionSize.width, compositionSize.height)
-  const scaledLongEdge = clampDimension(longEdge * EXPORT_QUALITY_SCALE[qualityPreset])
+  const scaledLongEdge = clampDimension(
+    longEdge * EXPORT_QUALITY_SCALE[qualityPreset]
+  )
 
   if (ratio >= 1) {
     return {
@@ -105,7 +117,9 @@ export function getDimensionsForPreset(
   }
 }
 
-export function getSupportedVideoMimeType(format: VideoExportFormat): string | null {
+export function getSupportedVideoMimeType(
+  format: VideoExportFormat
+): string | null {
   if (typeof MediaRecorder === "undefined") {
     return null
   }
@@ -115,12 +129,15 @@ export function getSupportedVideoMimeType(format: VideoExportFormat): string | n
       ? ["video/mp4;codecs=h264", "video/mp4"]
       : ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"]
 
-  return candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) ?? null
+  return (
+    candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) ??
+    null
+  )
 }
 
 export async function exportStillImage(
   projectState: RenderProjectState,
-  options: StillExportOptions,
+  options: StillExportOptions
 ): Promise<Blob> {
   const renderScale = EXPORT_QUALITY_SCALE[options.qualityPreset]
   const sourceRenderSize = {
@@ -147,7 +164,12 @@ export async function exportStillImage(
       renderSize: sourceRenderSize,
       time: options.time,
     })
-    cropCanvasToAspect(renderCanvas, outputCanvas, options.aspectPreset, projectState.compositionSize)
+    cropCanvasToAspect(
+      renderCanvas,
+      outputCanvas,
+      options.aspectPreset,
+      projectState.compositionSize
+    )
 
     const blob = await canvasToBlob(outputCanvas, options.type ?? "image/png")
 
@@ -164,12 +186,14 @@ export async function exportStillImage(
 
 export async function exportVideo(
   projectState: RenderProjectState,
-  options: VideoExportOptions,
+  options: VideoExportOptions
 ): Promise<Blob> {
   const mimeType = getSupportedVideoMimeType(options.format)
 
   if (!mimeType) {
-    throw new Error(`${options.format.toUpperCase()} export is not supported in this browser.`)
+    throw new Error(
+      `${options.format.toUpperCase()} export is not supported in this browser.`
+    )
   }
 
   const renderScale = EXPORT_QUALITY_SCALE[options.qualityPreset]
@@ -221,7 +245,7 @@ export async function exportVideo(
       const time = resolveExportTime(
         options.startTime + frameIndex / options.fps,
         projectState.timeline.duration,
-        projectState.timeline.loop,
+        projectState.timeline.loop
       )
 
       await renderFrameToCanvas(renderer, renderCanvas, projectState, {
@@ -230,8 +254,13 @@ export async function exportVideo(
         time,
       })
 
-      cropCanvasToAspect(renderCanvas, outputCanvas, options.aspectPreset, projectState.compositionSize)
-      await wait(Math.max(4, 1000 / options.fps))
+      cropCanvasToAspect(
+        renderCanvas,
+        outputCanvas,
+        options.aspectPreset,
+        projectState.compositionSize
+      )
+      await wait(4)
     }
 
     recorder.stop()
@@ -264,13 +293,13 @@ async function renderFrameToCanvas(
     logicalSize: Size
     renderSize: Size
     time: number
-  },
+  }
 ): Promise<void> {
   const timelineState = structuredClone(projectState.timeline)
   timelineState.currentTime = resolveExportTime(
     options.time,
     timelineState.duration,
-    timelineState.loop,
+    timelineState.loop
   )
   timelineState.isPlaying = false
 
@@ -286,9 +315,10 @@ async function renderFrameToCanvas(
       logicalSize: options.logicalSize,
       outputSize: options.renderSize,
       pixelRatio: 1,
+      sceneConfig: projectState.sceneConfig,
       timeline: timelineState,
       viewportSize: options.renderSize,
-    }),
+    })
   )
 
   await waitForRenderedFrame()
@@ -302,7 +332,7 @@ async function prewarmExportFrame(
     logicalSize: Size
     renderSize: Size
     time: number
-  },
+  }
 ): Promise<void> {
   await renderFrameToCanvas(renderer, canvas, projectState, options)
   await wait(48)
@@ -312,7 +342,7 @@ function cropCanvasToAspect(
   sourceCanvas: HTMLCanvasElement,
   outputCanvas: HTMLCanvasElement,
   aspectPreset: ExportAspectPreset,
-  compositionSize: Size,
+  compositionSize: Size
 ): void {
   const context = outputCanvas.getContext("2d")
 
@@ -347,11 +377,14 @@ function cropCanvasToAspect(
     0,
     0,
     outputCanvas.width,
-    outputCanvas.height,
+    outputCanvas.height
   )
 }
 
-function canvasToBlob(canvas: HTMLCanvasElement, type: string): Promise<Blob | null> {
+function canvasToBlob(
+  canvas: HTMLCanvasElement,
+  type: string
+): Promise<Blob | null> {
   return new Promise((resolve) => {
     canvas.toBlob((blob) => resolve(blob), type)
   })
@@ -370,7 +403,11 @@ function getVideoBitrate(qualityPreset: ExportQualityPreset): number {
   }
 }
 
-function resolveExportTime(time: number, duration: number, loop: boolean): number {
+function resolveExportTime(
+  time: number,
+  duration: number,
+  loop: boolean
+): number {
   if (!(Number.isFinite(time) && Number.isFinite(duration) && duration > 0)) {
     return 0
   }

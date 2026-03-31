@@ -86,7 +86,29 @@ export function EditorExportDialog({
   onOpenChange,
 }: EditorExportDialogProps) {
   const reduceMotion = useReducedMotion() ?? false
-  const compositionSize = useEditorStore((state) => state.canvasSize)
+  const canvasSize = useEditorStore((state) => state.canvasSize)
+  const sceneConfig = useEditorStore((state) => state.sceneConfig)
+  const compositionSize = useMemo(() => {
+    const aspect = sceneConfig.compositionAspect
+    if (aspect === "screen") return canvasSize
+
+    let ratio: number
+    switch (aspect) {
+      case "16:9": ratio = 16 / 9; break
+      case "9:16": ratio = 9 / 16; break
+      case "4:3": ratio = 4 / 3; break
+      case "3:4": ratio = 3 / 4; break
+      case "1:1": ratio = 1; break
+      case "custom": ratio = sceneConfig.compositionWidth / Math.max(sceneConfig.compositionHeight, 1); break
+      default: return canvasSize
+    }
+
+    const viewportAspect = canvasSize.width / Math.max(canvasSize.height, 1)
+    if (ratio > viewportAspect) {
+      return { width: canvasSize.width, height: Math.round(canvasSize.width / ratio) }
+    }
+    return { width: Math.round(canvasSize.height * ratio), height: canvasSize.height }
+  }, [canvasSize, sceneConfig.compositionAspect, sceneConfig.compositionWidth, sceneConfig.compositionHeight])
   const assets = useAssetStore((state) => state.assets)
   const layers = useLayerStore((state) => state.layers)
   const timelineDuration = useTimelineStore((state) => state.duration)
@@ -119,7 +141,7 @@ export function EditorExportDialog({
       "standard"
     )
   )
-  const [videoDuration, setVideoDuration] = useState(6)
+  const [videoDuration, setVideoDuration] = useState(timelineDuration)
   const [videoFps, setVideoFps] = useState(30)
   const [videoFormat, setVideoFormat] = useState<VideoExportFormat>("webm")
   const [isCopyingShader, setIsCopyingShader] = useState(false)
@@ -306,14 +328,13 @@ export function EditorExportDialog({
     setIsWorking(true)
 
     try {
-      const currentTime = useTimelineStore.getState().currentTime
       const blob = await exportVideo(buildRenderProjectState(), {
         aspectPreset: videoAspect,
         duration: Math.max(0.25, videoDuration),
         format: videoFormat,
         fps: Math.max(1, videoFps),
         qualityPreset: videoQuality,
-        startTime: currentTime,
+        startTime: 0,
         width: videoSize.width,
         height: videoSize.height,
       })
@@ -1129,13 +1150,37 @@ function NumberInput({
   )
 }
 
+function getEffectiveCompositionSize() {
+  const { canvasSize, sceneConfig } = useEditorStore.getState()
+  const aspect = sceneConfig.compositionAspect
+  if (aspect === "screen") return canvasSize
+
+  let ratio: number
+  switch (aspect) {
+    case "16:9": ratio = 16 / 9; break
+    case "9:16": ratio = 9 / 16; break
+    case "4:3": ratio = 4 / 3; break
+    case "3:4": ratio = 3 / 4; break
+    case "1:1": ratio = 1; break
+    case "custom": ratio = sceneConfig.compositionWidth / Math.max(sceneConfig.compositionHeight, 1); break
+    default: return canvasSize
+  }
+
+  const viewportAspect = canvasSize.width / Math.max(canvasSize.height, 1)
+  if (ratio > viewportAspect) {
+    return { width: canvasSize.width, height: Math.round(canvasSize.width / ratio) }
+  }
+  return { width: Math.round(canvasSize.height * ratio), height: canvasSize.height }
+}
+
 function buildRenderProjectState() {
   const timelineState = useTimelineStore.getState()
 
   return {
     assets: useAssetStore.getState().assets,
-    compositionSize: useEditorStore.getState().canvasSize,
+    compositionSize: getEffectiveCompositionSize(),
     layers: useLayerStore.getState().layers,
+    sceneConfig: useEditorStore.getState().sceneConfig,
     timeline: {
       currentTime: timelineState.currentTime,
       duration: timelineState.duration,

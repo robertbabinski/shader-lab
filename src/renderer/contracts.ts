@@ -5,6 +5,7 @@ import type {
   EditorAsset,
   EditorLayer,
   LayerParameterValues,
+  SceneConfig,
   Size,
   TimelineStateSnapshot,
 } from "@/types/editor"
@@ -29,6 +30,7 @@ export interface RendererFrame {
   logicalSize: Size
   outputSize: Size
   pixelRatio: number
+  sceneConfig: SceneConfig
   viewportSize: Size
 }
 
@@ -47,6 +49,7 @@ type BuildRendererFrameInput = {
   logicalSize?: Size
   outputSize: Size
   pixelRatio: number
+  sceneConfig: SceneConfig
   timeline: TimelineStateSnapshot
   viewportSize: Size
 }
@@ -106,6 +109,7 @@ export function buildRendererFrame(
     logicalSize: input.logicalSize ?? input.viewportSize,
     outputSize: input.outputSize,
     pixelRatio: input.pixelRatio,
+    sceneConfig: input.sceneConfig,
     viewportSize: input.viewportSize,
   }
 }

@@ -292,6 +292,57 @@ export interface TimelineStateSnapshot {
   tracks: TimelineTrack[]
 }
 
+export type SidebarView = "properties" | "scene"
+
+export const COMPOSITION_ASPECTS = [
+  "screen",
+  "16:9",
+  "9:16",
+  "4:3",
+  "3:4",
+  "1:1",
+  "custom",
+] as const
+export type CompositionAspect = (typeof COMPOSITION_ASPECTS)[number]
+
+export interface SceneConfig {
+  backgroundColor: string
+  compositionAspect: CompositionAspect
+  compositionWidth: number
+  compositionHeight: number
+  brightness: number
+  contrast: number
+  invert: boolean
+  channelMixer: {
+    rr: number; rg: number; rb: number
+    gr: number; gg: number; gb: number
+    br: number; bg: number; bb: number
+  }
+  clampMin: number
+  clampMax: number
+  quantizeLevels: number
+  colorMap: { stops: { position: number; color: string }[] } | null
+}
+
+export const DEFAULT_SCENE_CONFIG: SceneConfig = {
+  backgroundColor: "#080808",
+  compositionAspect: "screen",
+  compositionWidth: 1920,
+  compositionHeight: 1080,
+  brightness: 0,
+  contrast: 0,
+  invert: false,
+  channelMixer: {
+    rr: 1, rg: 0, rb: 0,
+    gr: 0, gg: 1, gb: 0,
+    br: 0, bg: 0, bb: 1,
+  },
+  clampMin: 0,
+  clampMax: 1,
+  quantizeLevels: 256,
+  colorMap: null,
+}
+
 export type RenderScale = 1 | 0.75 | 0.5
 export type WebGPUStatus =
   | "idle"
@@ -307,10 +358,12 @@ export interface EditorStateSnapshot {
   outputSize: Size
   panOffset: Vector2
   renderScale: RenderScale
+  sceneConfig: SceneConfig
   sidebars: {
     left: boolean
     right: boolean
   }
+  sidebarView: SidebarView
   theme: "dark" | "light"
   timelinePanelOpen: boolean
   webgpuError: string | null

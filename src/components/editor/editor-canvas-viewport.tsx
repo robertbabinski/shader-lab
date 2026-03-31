@@ -1,16 +1,80 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useMemo } from "react"
 import { useEditorRenderer } from "@/hooks/use-editor-renderer"
+import {
+  applyZoomAtPoint,
+  clampZoom,
+  getWheelZoomFactor,
+} from "@/lib/editor/view-transform"
 import { useEditorStore } from "@/store/editor-store"
-import { applyZoomAtPoint, clampZoom, getWheelZoomFactor } from "@/lib/editor/view-transform"
+import type { CompositionAspect } from "@/types/editor"
+
+function getCompositionAspectRatio(
+  aspect: CompositionAspect,
+  customWidth: number,
+  customHeight: number
+): number | null {
+  switch (aspect) {
+    case "screen":
+      return null
+    case "16:9":
+      return 16 / 9
+    case "9:16":
+      return 9 / 16
+    case "4:3":
+      return 4 / 3
+    case "3:4":
+      return 3 / 4
+    case "1:1":
+      return 1
+    case "custom":
+      return customWidth / Math.max(customHeight, 1)
+    default:
+      return null
+  }
+}
 
 export function EditorCanvasViewport() {
   const { canvasRef, isReady, viewportRef } = useEditorRenderer()
   const immersiveCanvas = useEditorStore((state) => state.immersiveCanvas)
-  const exitImmersiveCanvas = useEditorStore((state) => state.exitImmersiveCanvas)
+  const exitImmersiveCanvas = useEditorStore(
+    (state) => state.exitImmersiveCanvas
+  )
   const panOffset = useEditorStore((state) => state.panOffset)
   const zoom = useEditorStore((state) => state.zoom)
+  const sceneConfig = useEditorStore((state) => state.sceneConfig)
+  const canvasSize = useEditorStore((state) => state.canvasSize)
+
+  const compositionOverlay = useMemo(() => {
+    const ratio = getCompositionAspectRatio(
+      sceneConfig.compositionAspect,
+      sceneConfig.compositionWidth,
+      sceneConfig.compositionHeight
+    )
+    if (ratio === null) return null
+    if (canvasSize.width === 0 || canvasSize.height === 0) return null
+
+    const viewportAspect = canvasSize.width / canvasSize.height
+
+    let widthPercent: number
+    let heightPercent: number
+
+    if (ratio > viewportAspect) {
+      widthPercent = 100
+      heightPercent = (viewportAspect / ratio) * 100
+    } else {
+      heightPercent = 100
+      widthPercent = (ratio / viewportAspect) * 100
+    }
+
+    return { widthPercent, heightPercent }
+  }, [
+    sceneConfig.compositionAspect,
+    sceneConfig.compositionWidth,
+    sceneConfig.compositionHeight,
+    canvasSize,
+  ])
 
   useEffect(() => {
     if (!immersiveCanvas) {
@@ -54,7 +118,12 @@ export function EditorCanvasViewport() {
         y: event.clientY - rect.top - rect.height / 2,
       }
       const nextZoom = clampZoom(state.zoom * getWheelZoomFactor(event.deltaY))
-      const nextState = applyZoomAtPoint(state.zoom, state.panOffset, pointer, nextZoom)
+      const nextState = applyZoomAtPoint(
+        state.zoom,
+        state.panOffset,
+        pointer,
+        nextZoom
+      )
 
       state.setZoom(nextState.zoom)
       state.setPan(nextState.panOffset.x, nextState.panOffset.y)
@@ -70,16 +139,35 @@ export function EditorCanvasViewport() {
   return (
     <>
       <div ref={viewportRef} className="absolute inset-0 overflow-hidden">
-        <div className="absolute inset-0" style={{ transform: `translate3d(${panOffset.x}px, ${panOffset.y}px, 0)` }}>
+        <div
+          className="absolute inset-0"
+          style={{
+            transform: `translate3d(${panOffset.x}px, ${panOffset.y}px, 0)`,
+          }}
+        >
           <div
             className="absolute inset-0"
-            style={{ transform: `scale(${zoom})`, transformOrigin: "center center" }}
+            style={{
+              transform: `scale(${zoom})`,
+              transformOrigin: "center center",
+            }}
           >
             <canvas
               data-editor-canvas="true"
               ref={canvasRef}
               className="absolute inset-0 h-full w-full [image-rendering:pixelated]"
             />
+            {compositionOverlay && (
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 border border-white/20"
+                style={{
+                  width: `${compositionOverlay.widthPercent}%`,
+                  height: `${compositionOverlay.heightPercent}%`,
+                  boxShadow: "0 0 0 9999px rgba(0, 0, 0, 0.55)",
+                }}
+              />
+            )}
             {immersiveCanvas ? (
               <>
                 <div

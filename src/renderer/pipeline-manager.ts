@@ -1,5 +1,6 @@
 import { float, type TSLNode, texture as tslTexture, uv, vec2 } from "three/tsl"
 import * as THREE from "three/webgpu"
+import { parameterValuesSignature } from "@/lib/editor/parameter-schema"
 import type { RenderableLayerPass } from "@/renderer/contracts"
 import { CustomShaderPass } from "@/renderer/custom-shader-pass"
 import { GradientPass } from "@/renderer/gradient-pass"
@@ -7,9 +8,9 @@ import { LivePass } from "@/renderer/live-pass"
 import { MediaPass } from "@/renderer/media-pass"
 import type { PassNode } from "@/renderer/pass-node"
 import { createPassNode } from "@/renderer/pass-node-factory"
+import { ScenePostProcess } from "@/renderer/scene-post-process"
 import { TextPass } from "@/renderer/text-pass"
-import type { EditorLayer, Size } from "@/types/editor"
-import { parameterValuesSignature } from "@/lib/editor/parameter-schema"
+import type { EditorLayer, SceneConfig, Size } from "@/types/editor"
 
 type LayerPassNode = LivePass | MediaPass | PassNode
 
@@ -93,6 +94,9 @@ export class PipelineManager {
   private height: number
   private logicalWidth: number
   private logicalHeight: number
+  private readonly baseMaterial: THREE.MeshBasicMaterial
+  private currentBackgroundColor = "#080808"
+  private readonly postProcess: ScenePostProcess
   private rtA: THREE.WebGLRenderTarget
   private rtB: THREE.WebGLRenderTarget
 
@@ -105,8 +109,11 @@ export class PipelineManager {
 
     this.baseScene = new THREE.Scene()
     this.baseCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
-    const baseMaterial = new THREE.MeshBasicMaterial({ color: "#080808" })
-    const baseMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), baseMaterial)
+    this.baseMaterial = new THREE.MeshBasicMaterial({ color: "#080808" })
+    const baseMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(2, 2),
+      this.baseMaterial
+    )
     baseMesh.frustumCulled = false
     this.baseScene.add(baseMesh)
 
@@ -120,6 +127,8 @@ export class PipelineManager {
       this.height,
       RENDER_TARGET_OPTIONS
     )
+
+    this.postProcess = new ScenePostProcess()
 
     this.blitScene = new THREE.Scene()
     this.blitCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
@@ -212,6 +221,13 @@ export class PipelineManager {
       writeTarget = previousRead
     }
 
+    if (this.postProcess.active) {
+      this.postProcess.render(this.renderer, readTarget.texture, writeTarget)
+      const previousRead = readTarget
+      readTarget = writeTarget
+      writeTarget = previousRead
+    }
+
     this.blitInputNode.value = readTarget.texture
     this.renderer.setRenderTarget(null)
     this.renderer.render(this.blitScene, this.blitCamera)
@@ -250,10 +266,28 @@ export class PipelineManager {
     this.dirty = true
   }
 
+  updateBackgroundColor(color: string): void {
+    if (color === this.currentBackgroundColor) {
+      return
+    }
+
+    this.currentBackgroundColor = color
+    this.baseMaterial.color.set(color)
+    this.dirty = true
+  }
+
+  updateSceneConfig(config: SceneConfig): void {
+    const changed = this.postProcess.update(config)
+    if (changed) {
+      this.dirty = true
+    }
+  }
+
   dispose(): void {
     this.rtA.dispose()
     this.rtB.dispose()
     this.blitMaterial.dispose()
+    this.postProcess.dispose()
 
     for (const pass of this.passMap.values()) {
       pass.dispose()
