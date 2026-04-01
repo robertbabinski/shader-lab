@@ -34,8 +34,8 @@ export class PassNode {
   private readonly opacityUniform: Node
   private blendMode = "normal"
   private compositeMode: LayerCompositeMode = "filter"
-  private maskSource: string = "luminance"
-  private maskMode: string = "multiply"
+  private maskSource = "luminance"
+  private maskMode = "multiply"
   private maskInvert = false
 
   constructor(layerId: string) {
@@ -181,6 +181,7 @@ export class PassNode {
       float(sourceNode.g),
       float(sourceNode.b),
     )
+    const sourceAlpha = clamp(float(sourceNode.a), float(0), float(1))
     const luma = float(sourceColor.x)
       .mul(float(0.2126))
       .add(float(sourceColor.y).mul(float(0.7152)))
@@ -229,7 +230,7 @@ export class PassNode {
 
     return vec4(
       clamp(rotated, vec3(float(0), float(0), float(0)), vec3(float(1), float(1), float(1))),
-      float(1),
+      sourceAlpha,
     )
   }
 }

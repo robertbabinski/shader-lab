@@ -36,6 +36,8 @@ bun add @basementstudio/shader-lab three
 - Composition texture output is canvas-backed and can be consumed by WebGL or WebGPU host scenes
 - Postprocessing must run on the same `WebGPURenderer` as the scene texture you pass in
 
+Supported effect layers include ASCII, CRT, directional blur, dithering, halftone, ink, particle grid, pattern, pixelation, pixel sorting, posterize, slice, edge detect, displacement map, and chromatic aberration.
+
 ## API Overview
 
 ### High-level API

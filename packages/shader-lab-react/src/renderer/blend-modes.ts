@@ -172,6 +172,7 @@ export function buildBlendNode(
   const baseRgb = base.rgb
   const blendRgb = blend.rgb
   const normalizedOpacity = float(clamp(opacity, float(0), float(1)))
+  const blendAlpha = float(clamp(blend.a, float(0), float(1)))
 
   let composited: Node
 
@@ -227,7 +228,7 @@ export function buildBlendNode(
   }
 
   if (compositeMode === "filter") {
-    return vec4(mix(baseRgb, composited, normalizedOpacity), float(1))
+    return vec4(mix(baseRgb, composited, normalizedOpacity.mul(blendAlpha)), float(1))
   }
 
   const source = maskConfig?.source ?? "luminance"

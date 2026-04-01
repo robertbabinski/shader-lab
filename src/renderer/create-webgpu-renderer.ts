@@ -20,6 +20,14 @@ export async function createWebGPURenderer(
   return {
     async initialize() {
       await renderer.init()
+      ;(renderer as THREE.WebGPURenderer & {
+        outputColorSpace: string
+        toneMapping: number
+      }).outputColorSpace = THREE.LinearSRGBColorSpace
+      ;(renderer as THREE.WebGPURenderer & {
+        outputColorSpace: string
+        toneMapping: number
+      }).toneMapping = THREE.NoToneMapping
       renderer.setClearColor("#0a0d10", 1)
     },
 

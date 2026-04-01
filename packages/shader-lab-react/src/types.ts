@@ -17,17 +17,24 @@ export type ShaderLabSourceLayerType =
 
 export type ShaderLabEffectLayerType =
   | "ascii"
+  | "directional-blur"
   | "chromatic-aberration"
   | "crt"
   | "displacement-map"
   | "dithering"
   | "edge-detect"
+  | "fluted-glass"
   | "halftone"
   | "ink"
   | "particle-grid"
   | "pattern"
   | "pixelation"
   | "pixel-sorting"
+  | "plotter"
+  | "posterize"
+  | "slice"
+  | "smear"
+  | "threshold"
 
 export type ShaderLabLayerType =
   | ShaderLabEffectLayerType

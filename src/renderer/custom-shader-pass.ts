@@ -2,10 +2,11 @@ import { clamp, float, type TSLNode, uniform, vec3, vec4 } from "three/tsl"
 import { CUSTOM_SHADER_ENTRY_EXPORT } from "@/lib/editor/custom-shader/shared"
 import { compileCustomShaderModule } from "@/renderer/custom-shader-runtime"
 import { PassNode } from "@/renderer/pass-node"
-import type { LayerParameterValues } from "@/types/editor"
 import { useLayerStore } from "@/store/layer-store"
+import type { LayerParameterValues } from "@/types/editor"
 
 type Node = TSLNode
+type TypedNode = TSLNode & { nodeType?: string | null }
 
 export class CustomShaderPass extends PassNode {
   private compiledSketch: (() => Node) | null = null
@@ -94,14 +95,22 @@ export class CustomShaderPass extends PassNode {
     }
 
     try {
-      return vec4(
-        clamp(
-          this.compiledSketch(),
-          vec3(float(0), float(0), float(0)),
-          vec3(float(1), float(1), float(1))
-        ),
-        float(1)
+      const outputNode = this.compiledSketch() as TypedNode
+      const outputAlpha =
+        outputNode.nodeType === "vec4"
+          ? clamp(float(outputNode.a), float(0), float(1))
+          : float(1)
+      const clampedRgb = clamp(
+        outputNode.rgb ?? vec3(outputNode),
+        vec3(float(0), float(0), float(0)),
+        vec3(float(1), float(1), float(1))
       )
+
+      if (outputNode.nodeType === "vec4") {
+        return vec4(clampedRgb, outputAlpha)
+      }
+
+      return vec4(clampedRgb, float(1))
     } catch (error) {
       useLayerStore
         .getState()
