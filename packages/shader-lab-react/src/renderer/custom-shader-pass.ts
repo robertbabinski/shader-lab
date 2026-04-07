@@ -1,4 +1,5 @@
-import { clamp, float, pow, type TSLNode, uniform, vec3, vec4 } from "three/tsl"
+import { clamp, float, pow, texture as tslTexture, type TSLNode, uniform, uv, vec2, vec3, vec4 } from "three/tsl"
+import * as THREE from "three/webgpu"
 import { CUSTOM_SHADER_ENTRY_EXPORT } from "../lib/editor/custom-shader/shared"
 import type { LayerParameterValues } from "../types/editor"
 import { compileCustomShaderModule } from "./custom-shader-runtime"
@@ -15,6 +16,8 @@ export class CustomShaderPass extends PassNode {
   private compileRequestId = 0
   private lastCompileSignature = ""
   private readonly timeUniform: Node
+  private readonly inputTextureNode: Node
+  private isEffectMode = false
 
   constructor(
     layerId: string,
@@ -23,6 +26,10 @@ export class CustomShaderPass extends PassNode {
     super(layerId)
     this.onRuntimeError = onRuntimeError
     this.timeUniform = uniform(0)
+    this.inputTextureNode = tslTexture(
+      new THREE.Texture(),
+      vec2(uv().x, float(1).sub(uv().y))
+    )
     this.rebuildEffectNode()
   }
 
@@ -31,6 +38,8 @@ export class CustomShaderPass extends PassNode {
   }
 
   override updateParams(params: LayerParameterValues): void {
+    this.isEffectMode = params.effectMode === true
+
     const sourceCode =
       typeof params.sourceCode === "string" ? params.sourceCode : ""
     const entryExport =
@@ -43,6 +52,7 @@ export class CustomShaderPass extends PassNode {
       typeof params.sourceRevision === "number" ? params.sourceRevision : 0
     const compileSignature = [
       entryExport,
+      this.isEffectMode ? "effect" : "source",
       sourceCode,
       sourceFileName,
       sourceRevision,
@@ -56,11 +66,14 @@ export class CustomShaderPass extends PassNode {
     this.compileRequestId += 1
     const requestId = this.compileRequestId
 
+    const extraScope: Record<string, Node> = {
+      inputTexture: this.inputTextureNode,
+      time: this.timeUniform,
+    }
+
     void compileCustomShaderModule({
       entryExport,
-      extraScope: {
-        time: this.timeUniform,
-      },
+      extraScope,
       fileName: sourceFileName || "custom-shader.ts",
       sourceCode,
     })
@@ -90,6 +103,7 @@ export class CustomShaderPass extends PassNode {
 
   protected override beforeRender(time: number): void {
     this.timeUniform.value = time
+    this.inputTextureNode.value = this.inputNode.value
   }
 
   protected override buildEffectNode(): Node {
@@ -108,17 +122,21 @@ export class CustomShaderPass extends PassNode {
         vec3(float(0), float(0), float(0)),
         vec3(float(1), float(1), float(1))
       )
-      const linearizedRgb = vec3(
-        pow(float(clampedRgb.x), float(2.2)),
-        pow(float(clampedRgb.y), float(2.2)),
-        pow(float(clampedRgb.z), float(2.2))
-      )
+
+      // In effect mode the input is already linear — skip sRGB→linear conversion
+      const finalRgb = this.isEffectMode
+        ? clampedRgb
+        : vec3(
+            pow(float(clampedRgb.x), float(2.2)),
+            pow(float(clampedRgb.y), float(2.2)),
+            pow(float(clampedRgb.z), float(2.2))
+          )
 
       if (outputNode.nodeType === "vec4") {
-        return vec4(linearizedRgb, outputAlpha)
+        return vec4(finalRgb, outputAlpha)
       }
 
-      return vec4(linearizedRgb, float(1))
+      return vec4(finalRgb, float(1))
     } catch (error) {
       this.onRuntimeError?.(
         error instanceof Error

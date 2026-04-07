@@ -215,6 +215,8 @@ export function renderFieldLabel(
 
 export function ParameterField({
   definition,
+  onInteractionEnd,
+  onInteractionStart,
   layerId,
   onChange,
   onTimelineKeyframe,
@@ -224,6 +226,8 @@ export function ParameterField({
   value,
 }: {
   definition: ParameterDefinition
+  onInteractionEnd?: (() => void) | undefined
+  onInteractionStart?: (() => void) | undefined
   layerId: string
   onChange: (id: string, key: string, value: ParameterValue) => void
   onTimelineKeyframe: (
@@ -270,9 +274,11 @@ export function ParameterField({
           )}
           max={definition.max ?? 100}
           min={definition.min ?? 0}
+          onInteractionStart={onInteractionStart}
           onValueChange={(nextValue) =>
             onChange(layerId, definition.key, nextValue)
           }
+          onValueCommitted={() => onInteractionEnd?.()}
           step={definition.step ?? 0.01}
           value={toNumberValue(value, definition.defaultValue)}
           valueFormatOptions={{
@@ -340,6 +346,8 @@ export function ParameterField({
             timelineControl
           )}
           <ColorPicker
+            onInteractionEnd={onInteractionEnd}
+            onInteractionStart={onInteractionStart}
             onValueChange={(nextValue) =>
               onChange(layerId, definition.key, nextValue)
             }
@@ -354,6 +362,8 @@ export function ParameterField({
           label={renderFieldLabel(fieldLabel, timelineControl)}
           max={definition.max ?? 1}
           min={definition.min ?? -1}
+          onInteractionEnd={onInteractionEnd}
+          onInteractionStart={onInteractionStart}
           onValueChange={(nextValue) =>
             onChange(layerId, definition.key, nextValue)
           }

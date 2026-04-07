@@ -33,6 +33,7 @@ export class MediaPass extends PassNode {
   private loadedUrl: string | null = null
   private videoHandle: VideoHandle | null = null
   private videoTexture: THREE.VideoTexture | null = null
+  private previewFrozen = false
 
   constructor(layerId: string) {
     super(layerId)
@@ -66,6 +67,7 @@ export class MediaPass extends PassNode {
     this.currentTexture = handle.texture
     this.videoHandle = handle
     this.videoTexture = handle.texture
+    void handle.setFrozen(this.previewFrozen)
     this.setTextureAspect(handle.texture)
   }
 
@@ -88,12 +90,22 @@ export class MediaPass extends PassNode {
       typeof params.playbackRate === "number" &&
       Number.isFinite(params.playbackRate)
     ) {
-      this.videoHandle.video.playbackRate = Math.max(0.1, params.playbackRate)
+      this.videoHandle.setPlaybackRate(params.playbackRate)
     }
 
     if (this.videoHandle) {
-      this.videoHandle.video.loop = true
+      this.videoHandle.setLoop(true)
     }
+  }
+
+  setPreviewFrozen(frozen: boolean): void {
+    this.previewFrozen = frozen
+
+    if (!this.videoHandle) {
+      return
+    }
+
+    void this.videoHandle.setFrozen(frozen)
   }
 
   override render(
@@ -120,6 +132,14 @@ export class MediaPass extends PassNode {
 
   override needsContinuousRender(): boolean {
     return this.videoTexture !== null
+  }
+
+  override async prepareForExportFrame(time: number): Promise<void> {
+    if (!this.videoHandle) {
+      return
+    }
+
+    await this.videoHandle.prepareFrame(time)
   }
 
   override dispose(): void {

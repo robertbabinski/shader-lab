@@ -109,6 +109,14 @@ const liveParams = [
 const customShaderParams = [
   {
     animatable: false,
+    defaultValue: false,
+    key: "effectMode",
+    label: "Effect Mode",
+    type: "boolean",
+    visibleWhen: CUSTOM_SHADER_INTERNAL_VISIBILITY,
+  },
+  {
+    animatable: false,
     defaultValue: "paste",
     key: "sourceMode",
     label: "Source Mode",

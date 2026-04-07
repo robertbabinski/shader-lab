@@ -19,7 +19,10 @@ import {
 } from "@/lib/editor/parameter-schema"
 import { getLayerDefinition } from "@/lib/editor/config/layer-registry"
 
-export interface TimelineStoreState extends TimelineStateSnapshot {}
+export interface TimelineStoreState extends TimelineStateSnapshot {
+  frozen: boolean
+  lastRenderedClockTime: number
+}
 
 interface ToggleKeyframeInput {
   binding: AnimatedPropertyBinding
@@ -48,6 +51,8 @@ export interface TimelineStoreActions {
   setCurrentTime: (time: number) => void
   setDuration: (duration: number) => void
   setLoop: (loop: boolean) => void
+  setFrozen: (frozen: boolean) => void
+  setLastRenderedClockTime: (time: number) => void
   setPlaying: (playing: boolean) => void
   setSelected: (trackId: string | null, keyframeId?: string | null) => void
   setTrackEnabled: (trackId: string, enabled: boolean) => void
@@ -179,11 +184,24 @@ function cloneTracks(tracks: TimelineTrack[]): TimelineTrack[] {
 export const useTimelineStore = create<TimelineStore>((set, get) => ({
   currentTime: 0,
   duration: DEFAULT_PROJECT_TIMELINE.duration,
+  frozen: false,
   isPlaying: false,
+  lastRenderedClockTime: 0,
   loop: DEFAULT_PROJECT_TIMELINE.loop,
   selectedKeyframeId: null,
   selectedTrackId: null,
   tracks: DEFAULT_PROJECT_TIMELINE.tracks,
+
+  setFrozen: (frozen) => {
+    set((state) => ({
+      frozen,
+      isPlaying: frozen ? false : state.isPlaying,
+    }))
+  },
+
+  setLastRenderedClockTime: (time) => {
+    set({ lastRenderedClockTime: time })
+  },
 
   setPlaying: (isPlaying) => {
     set({ isPlaying })
@@ -227,9 +245,17 @@ export const useTimelineStore = create<TimelineStore>((set, get) => ({
   },
 
   setCurrentTime: (currentTime) => {
-    set((state) => ({
-      currentTime: clampTime(currentTime, state.duration),
-    }))
+    set((state) => {
+      const nextTime = clampTime(currentTime, state.duration)
+
+      if (Math.abs(nextTime - state.currentTime) <= Number.EPSILON) {
+        return state
+      }
+
+      return {
+        currentTime: nextTime,
+      }
+    })
   },
 
   advance: (delta) => {
@@ -239,6 +265,13 @@ export const useTimelineStore = create<TimelineStore>((set, get) => ({
 
     set((state) => {
       const next = advanceProjectTimeline(state, delta)
+
+      if (
+        Math.abs(next.currentTime - state.currentTime) <= Number.EPSILON &&
+        next.isPlaying === state.isPlaying
+      ) {
+        return state
+      }
 
       return {
         currentTime: next.currentTime,

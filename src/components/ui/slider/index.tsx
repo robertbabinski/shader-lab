@@ -18,6 +18,7 @@ type SliderProps = Omit<
 > & {
   className?: string
   label?: ReactNode
+  onInteractionStart?: (() => void) | undefined
   valueFormatOptions?: Intl.NumberFormatOptions
   valuePrefix?: string
   valueSuffix?: string
@@ -36,6 +37,8 @@ export function Slider({
   locale,
   max = 100,
   min = 0,
+  onInteractionStart,
+  onValueCommitted,
   onValueChange,
   style,
   value,
@@ -45,6 +48,7 @@ export function Slider({
   ...props
 }: SliderProps) {
   const controlRef = useRef<HTMLDivElement | null>(null)
+  const gestureActiveRef = useRef(false)
   const [isVisualDragging, setIsVisualDragging] = useState(false)
   const [pullOffset, setPullOffset] = useState(0)
 
@@ -75,6 +79,7 @@ export function Slider({
   })
 
   const resetPull = useEffectEvent(() => {
+    gestureActiveRef.current = false
     setIsVisualDragging(false)
     setPullOffset(0)
   })
@@ -96,7 +101,7 @@ export function Slider({
   }, [isVisualDragging])
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    setIsVisualDragging(true)
+    setIsVisualDragging((current) => (current ? current : true))
     updatePullOffset(event.clientX)
   }
 
@@ -114,7 +119,22 @@ export function Slider({
     nextValue: number,
     eventDetails: BaseSlider.Root.ChangeEventDetails
   ) => {
+    if (!gestureActiveRef.current) {
+      gestureActiveRef.current = true
+      onInteractionStart?.()
+    }
+
     onValueChange?.(nextValue, eventDetails)
+  }
+
+  const handleValueCommitted = (
+    nextValue: number,
+    eventDetails: Parameters<
+      NonNullable<BaseSlider.Root.Props<number>["onValueCommitted"]>
+    >[1]
+  ) => {
+    onValueCommitted?.(nextValue, eventDetails)
+    resetPull()
   }
 
   return (
@@ -126,6 +146,7 @@ export function Slider({
       max={max}
       min={min}
       onValueChange={handleValueChange}
+      onValueCommitted={handleValueCommitted}
       style={sliderStyle}
       value={value}
       {...props}

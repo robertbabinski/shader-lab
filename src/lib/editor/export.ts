@@ -1,10 +1,14 @@
 "use client"
 
-import { buildRendererFrame } from "@/renderer/contracts"
+import { buildRendererFrame, type EditorRenderer } from "@/renderer/contracts"
 import {
   browserSupportsWebGPU,
   createWebGPURenderer,
 } from "@/renderer/create-webgpu-renderer"
+import {
+  createVideoExportEncoder,
+  getSupportedVideoExportConfig,
+} from "@/lib/editor/video-export-encoder"
 import type {
   EditorAsset,
   EditorLayer,
@@ -42,6 +46,7 @@ type RenderProjectState = {
 
 type StillExportOptions = {
   aspectPreset: ExportAspectPreset
+  liveRenderer?: EditorRenderer | null
   qualityPreset: ExportQualityPreset
   time: number
   type?: string
@@ -54,6 +59,7 @@ type VideoExportOptions = {
   duration: number
   format: VideoExportFormat
   fps: number
+  onProgress?: (progress: { label: string; value: number }) => void
   qualityPreset: ExportQualityPreset
   startTime: number
   width: number
@@ -117,22 +123,11 @@ export function getDimensionsForPreset(
   }
 }
 
-export function getSupportedVideoMimeType(
+export async function getSupportedVideoMimeType(
   format: VideoExportFormat
-): string | null {
-  if (typeof MediaRecorder === "undefined") {
-    return null
-  }
-
-  const candidates =
-    format === "mp4"
-      ? ["video/mp4;codecs=h264", "video/mp4"]
-      : ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"]
-
-  return (
-    candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) ??
-    null
-  )
+): Promise<string | null> {
+  const support = await getSupportedVideoExportConfig(format)
+  return support?.mimeType ?? null
 }
 
 export async function exportStillImage(
@@ -145,11 +140,76 @@ export async function exportStillImage(
     width: clampDimension(projectState.compositionSize.width * renderScale),
   }
 
-  const renderCanvas = createHiddenRenderCanvas()
   const outputCanvas = document.createElement("canvas")
   outputCanvas.width = clampDimension(options.width)
   outputCanvas.height = clampDimension(options.height)
 
+  if (options.liveRenderer) {
+    return exportStillWithLiveRenderer(
+      options.liveRenderer,
+      projectState,
+      sourceRenderSize,
+      outputCanvas,
+      options
+    )
+  }
+
+  return exportStillWithNewRenderer(
+    projectState,
+    sourceRenderSize,
+    outputCanvas,
+    options
+  )
+}
+
+async function exportStillWithLiveRenderer(
+  liveRenderer: EditorRenderer,
+  projectState: RenderProjectState,
+  sourceRenderSize: Size,
+  outputCanvas: HTMLCanvasElement,
+  options: StillExportOptions
+): Promise<Blob> {
+  const timelineState = structuredClone(projectState.timeline)
+  timelineState.isPlaying = false
+
+  const frame = buildRendererFrame({
+    assets: projectState.assets,
+    clockTime: options.time,
+    delta: 0,
+    layers: projectState.layers,
+    logicalSize: projectState.compositionSize,
+    outputSize: sourceRenderSize,
+    pixelRatio: 1,
+    sceneConfig: projectState.sceneConfig,
+    timeline: timelineState,
+    viewportSize: sourceRenderSize,
+  })
+
+  const snapshot = liveRenderer.exportFrame(frame, sourceRenderSize)
+
+  cropCanvasToAspect(
+    snapshot,
+    outputCanvas,
+    options.aspectPreset,
+    projectState.compositionSize
+  )
+
+  const blob = await canvasToBlob(outputCanvas, options.type ?? "image/png")
+
+  if (!blob) {
+    throw new Error("Could not build the export image.")
+  }
+
+  return blob
+}
+
+async function exportStillWithNewRenderer(
+  projectState: RenderProjectState,
+  sourceRenderSize: Size,
+  outputCanvas: HTMLCanvasElement,
+  options: StillExportOptions
+): Promise<Blob> {
+  const renderCanvas = createHiddenRenderCanvas()
   const renderer = await createExportRenderer(renderCanvas)
 
   try {
@@ -188,9 +248,14 @@ export async function exportVideo(
   projectState: RenderProjectState,
   options: VideoExportOptions
 ): Promise<Blob> {
-  const mimeType = getSupportedVideoMimeType(options.format)
+  options.onProgress?.({
+    label: "Preparing export",
+    value: 0.02,
+  })
 
-  if (!mimeType) {
+  const support = await getSupportedVideoExportConfig(options.format)
+
+  if (!support) {
     throw new Error(
       `${options.format.toUpperCase()} export is not supported in this browser.`
     )
@@ -208,26 +273,12 @@ export async function exportVideo(
   outputCanvas.height = clampDimension(options.height)
 
   const renderer = await createExportRenderer(renderCanvas)
-  const stream = outputCanvas.captureStream(options.fps)
-  const recorder = new MediaRecorder(stream, {
-    mimeType,
-    videoBitsPerSecond: getVideoBitrate(options.qualityPreset),
-  })
-  const chunks: BlobPart[] = []
-
-  recorder.ondataavailable = (event) => {
-    if (event.data.size > 0) {
-      chunks.push(event.data)
-    }
-  }
-
-  const stopPromise = new Promise<Blob>((resolve, reject) => {
-    recorder.onerror = () => {
-      reject(new Error("The browser failed while encoding the export video."))
-    }
-    recorder.onstop = () => {
-      resolve(new Blob(chunks, { type: mimeType }))
-    }
+  const encoder = await createVideoExportEncoder({
+    bitrate: getVideoBitrate(options.qualityPreset),
+    format: support.format,
+    fps: options.fps,
+    height: outputCanvas.height,
+    width: outputCanvas.width,
   })
 
   try {
@@ -237,9 +288,13 @@ export async function exportVideo(
       time: options.startTime,
     })
 
-    recorder.start()
+    const totalFrames = Math.max(1, Math.round(options.duration * options.fps))
+    const totalDurationUs = Math.max(1, Math.round(options.duration * 1_000_000))
 
-    const totalFrames = Math.max(1, Math.ceil(options.duration * options.fps))
+    options.onProgress?.({
+      label: `Rendering frames 0/${totalFrames}`,
+      value: 0.08,
+    })
 
     for (let frameIndex = 0; frameIndex < totalFrames; frameIndex += 1) {
       const time = resolveExportTime(
@@ -260,15 +315,31 @@ export async function exportVideo(
         options.aspectPreset,
         projectState.compositionSize
       )
-      await wait(4)
+
+      const frameStartUs = Math.round((frameIndex * totalDurationUs) / totalFrames)
+      const frameEndUs = Math.round(
+        ((frameIndex + 1) * totalDurationUs) / totalFrames
+      )
+
+      await encoder.encodeCanvasFrame(
+        outputCanvas,
+        frameIndex,
+        Math.max(1, frameEndUs - frameStartUs),
+        frameStartUs
+      )
+
+      options.onProgress?.({
+        label: `Rendering frames ${frameIndex + 1}/${totalFrames}`,
+        value: 0.08 + ((frameIndex + 1) / totalFrames) * 0.88,
+      })
     }
 
-    recorder.stop()
-    stream.getTracks().forEach((track) => {
-      track.stop()
+    options.onProgress?.({
+      label: "Finalizing file",
+      value: 0.98,
     })
 
-    return await stopPromise
+    return await encoder.finalize()
   } finally {
     renderer.dispose()
     destroyHiddenRenderCanvas(renderCanvas)
@@ -306,20 +377,21 @@ async function renderFrameToCanvas(
   canvas.width = options.renderSize.width
   canvas.height = options.renderSize.height
   renderer.resize(options.renderSize, 1)
-  renderer.render(
-    buildRendererFrame({
-      assets: projectState.assets,
-      clockTime: timelineState.currentTime,
-      delta: 0,
-      layers: projectState.layers,
-      logicalSize: options.logicalSize,
-      outputSize: options.renderSize,
-      pixelRatio: 1,
-      sceneConfig: projectState.sceneConfig,
-      timeline: timelineState,
-      viewportSize: options.renderSize,
-    })
-  )
+  const frame = buildRendererFrame({
+    assets: projectState.assets,
+    clockTime: timelineState.currentTime,
+    delta: 0,
+    layers: projectState.layers,
+    logicalSize: options.logicalSize,
+    outputSize: options.renderSize,
+    pixelRatio: 1,
+    sceneConfig: projectState.sceneConfig,
+    timeline: timelineState,
+    viewportSize: options.renderSize,
+  })
+  renderer.render(frame)
+  await renderer.prepareForExportFrame(timelineState.currentTime)
+  renderer.render(frame)
 
   await waitForRenderedFrame()
 }
@@ -335,7 +407,20 @@ async function prewarmExportFrame(
   }
 ): Promise<void> {
   await renderFrameToCanvas(renderer, canvas, projectState, options)
-  await wait(48)
+
+  const maxWaitMs = 5_000
+  const pollInterval = 10
+  let elapsed = 0
+
+  while (renderer.hasPendingResources() && elapsed < maxWaitMs) {
+    await wait(pollInterval)
+    elapsed += pollInterval
+  }
+
+  await renderFrameToCanvas(renderer, canvas, projectState, options)
+  await waitForRenderedFrame()
+  await renderFrameToCanvas(renderer, canvas, projectState, options)
+  await waitForRenderedFrame()
 }
 
 function cropCanvasToAspect(

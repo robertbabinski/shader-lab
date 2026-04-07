@@ -260,6 +260,7 @@ export async function compileCustomShaderModule({
   const scopeValues = scopeNames.map(
     (key) => runtimeScope[key as keyof typeof runtimeScope]
   )
+
   const module = { exports: {} as Record<string, unknown> }
   const exportsObject = module.exports
   const evaluator = new Function(

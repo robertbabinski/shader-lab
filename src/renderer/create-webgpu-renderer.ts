@@ -17,18 +17,45 @@ export async function createWebGPURenderer(
   })
   let pipeline: PipelineManager | null = null
 
+  function renderFrame(frame: RendererFrame) {
+    if (!pipeline) {
+      pipeline = new PipelineManager(renderer, frame.viewportSize)
+    }
+
+    pipeline.updateLogicalSize(frame.logicalSize)
+    pipeline.updateBackgroundColor(frame.sceneConfig.backgroundColor)
+    pipeline.updateSceneConfig(frame.sceneConfig)
+    pipeline.syncLayers([...frame.layers].reverse())
+    pipeline.render(frame.clock.time, frame.clock.delta)
+  }
+
   return {
     async initialize() {
       await renderer.init()
-      ;(renderer as THREE.WebGPURenderer & {
-        outputColorSpace: string
-        toneMapping: number
-      }).outputColorSpace = THREE.SRGBColorSpace
-      ;(renderer as THREE.WebGPURenderer & {
-        outputColorSpace: string
-        toneMapping: number
-      }).toneMapping = THREE.NoToneMapping
+      ;(
+        renderer as THREE.WebGPURenderer & {
+          outputColorSpace: string
+          toneMapping: number
+        }
+      ).outputColorSpace = THREE.SRGBColorSpace
+      ;(
+        renderer as THREE.WebGPURenderer & {
+          outputColorSpace: string
+          toneMapping: number
+        }
+      ).toneMapping = THREE.NoToneMapping
       renderer.setClearColor("#0a0d10", 1)
+    },
+
+    hasPendingCompilations() {
+      return pipeline?.hasPendingCompilations() ?? false
+    },
+
+    hasPendingResources() {
+      return (
+        (pipeline?.hasPendingCompilations() ?? false) ||
+        (pipeline?.hasPendingMediaLoads() ?? false)
+      )
     },
 
     resize(size: Size, pixelRatio: number) {
@@ -38,15 +65,29 @@ export async function createWebGPURenderer(
     },
 
     render(frame: RendererFrame) {
-      if (!pipeline) {
-        pipeline = new PipelineManager(renderer, frame.viewportSize)
-      }
+      renderFrame(frame)
+    },
 
-      pipeline.updateLogicalSize(frame.logicalSize)
-      pipeline.updateBackgroundColor(frame.sceneConfig.backgroundColor)
-      pipeline.updateSceneConfig(frame.sceneConfig)
-      pipeline.syncLayers([...frame.layers].reverse())
-      pipeline.render(frame.clock.time, frame.clock.delta)
+    setPreviewFrozen(frozen: boolean) {
+      pipeline?.setPreviewFrozen(frozen)
+    },
+
+    async prepareForExportFrame(time: number) {
+      await pipeline?.prepareForExportFrame(time)
+    },
+
+    exportFrame(frame: RendererFrame, _renderSize: Size): HTMLCanvasElement {
+      renderFrame(frame)
+
+      const w = canvas.width
+      const h = canvas.height
+      const snapshot = document.createElement("canvas")
+      snapshot.width = w
+      snapshot.height = h
+      const ctx = snapshot.getContext("2d")!
+      ctx.drawImage(canvas, 0, 0)
+
+      return snapshot
     },
 
     dispose() {

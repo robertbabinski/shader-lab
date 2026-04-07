@@ -75,6 +75,19 @@ const QUALITY_PRESETS: ExportQualityPreset[] = [
   "ultra",
 ]
 const VIDEO_FPS_PRESETS = [24, 30, 60] as const
+const DEFAULT_VIDEO_EXPORT_DURATION = 8
+const VIDEO_DURATION_STEP = 0.25
+
+function roundDurationForExport(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) {
+    return DEFAULT_VIDEO_EXPORT_DURATION
+  }
+
+  return Math.max(
+    VIDEO_DURATION_STEP,
+    Math.round(value / VIDEO_DURATION_STEP) * VIDEO_DURATION_STEP
+  )
+}
 
 interface EditorExportDialogProps {
   open: boolean
@@ -144,16 +157,43 @@ export function EditorExportDialog({
   const [videoDuration, setVideoDuration] = useState(timelineDuration)
   const [videoFps, setVideoFps] = useState(30)
   const [videoFormat, setVideoFormat] = useState<VideoExportFormat>("webm")
+  const [videoDurationDirty, setVideoDurationDirty] = useState(false)
+  const [videoProgress, setVideoProgress] = useState<{
+    label: string
+    value: number
+  } | null>(null)
+  const [videoSupport, setVideoSupport] = useState({
+    mp4: false,
+    webm: false,
+  })
   const [isCopyingShader, setIsCopyingShader] = useState(false)
   const importInputRef = useRef<HTMLInputElement | null>(null)
   const measureRef = useRef<HTMLDivElement | null>(null)
 
-  const mp4Supported = Boolean(getSupportedVideoMimeType("mp4"))
-  const webmSupported = Boolean(getSupportedVideoMimeType("webm"))
   const shaderExportIssues = useMemo(
     () => validateShaderExportSupport(layers, assets),
     [assets, layers]
   )
+  const defaultVideoDuration = useMemo(() => {
+    const assetById = new Map(assets.map((asset) => [asset.id, asset]))
+    const longestVideoDuration = layers.reduce((longest, layer) => {
+      if (!(layer.kind === "source" && layer.type === "video" && layer.assetId)) {
+        return longest
+      }
+
+      const duration = assetById.get(layer.assetId)?.duration
+
+      return typeof duration === "number" && Number.isFinite(duration) && duration > 0
+        ? Math.max(longest, duration)
+        : longest
+    }, 0)
+
+    return roundDurationForExport(
+      longestVideoDuration > 0
+        ? longestVideoDuration
+        : DEFAULT_VIDEO_EXPORT_DURATION
+    )
+  }, [assets, layers])
   const shaderSnippet = useMemo(() => {
     if (shaderExportIssues.length > 0) {
       return null
@@ -183,6 +223,28 @@ export function EditorExportDialog({
 
   useEffect(() => {
     setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+
+    void Promise.all([
+      getSupportedVideoMimeType("webm"),
+      getSupportedVideoMimeType("mp4"),
+    ]).then(([webm, mp4]) => {
+      if (cancelled) {
+        return
+      }
+
+      setVideoSupport({
+        mp4: Boolean(mp4),
+        webm: Boolean(webm),
+      })
+    })
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   useEffect(() => {
@@ -222,9 +284,21 @@ export function EditorExportDialog({
   }, [compositionSize, videoAspect, videoQuality])
 
   useEffect(() => {
+    if (!open || videoDurationDirty) {
+      return
+    }
+
+    setVideoDuration(defaultVideoDuration)
+  }, [defaultVideoDuration, open, videoDurationDirty])
+
+  useEffect(() => {
     if (!open) {
       return
     }
+
+    setVideoDuration(defaultVideoDuration)
+    setVideoDurationDirty(false)
+    setVideoProgress(null)
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -237,7 +311,7 @@ export function EditorExportDialog({
     return () => {
       window.removeEventListener("keydown", handleKeyDown)
     }
-  }, [onOpenChange, open])
+  }, [defaultVideoDuration, onOpenChange, open])
 
   const clearFeedback = useCallback(() => {
     setErrorMessage(null)
@@ -301,11 +375,13 @@ export function EditorExportDialog({
     setIsWorking(true)
 
     try {
-      const currentTime = useTimelineStore.getState().currentTime
+      const liveRenderer = useEditorStore.getState().liveRenderer
+      const clockTime = useTimelineStore.getState().lastRenderedClockTime
       const blob = await exportStillImage(buildRenderProjectState(), {
         aspectPreset: imageAspect,
+        liveRenderer,
         qualityPreset: imageQuality,
-        time: currentTime,
+        time: clockTime,
         width: imageSize.width,
         height: imageSize.height,
       })
@@ -328,18 +404,24 @@ export function EditorExportDialog({
     setIsWorking(true)
 
     try {
+      const startTime = useTimelineStore.getState().currentTime
       const blob = await exportVideo(buildRenderProjectState(), {
         aspectPreset: videoAspect,
         duration: Math.max(0.25, videoDuration),
         format: videoFormat,
         fps: Math.max(1, videoFps),
+        onProgress: setVideoProgress,
         qualityPreset: videoQuality,
-        startTime: 0,
+        startTime,
         width: videoSize.width,
         height: videoSize.height,
       })
 
       downloadBlob(blob, buildDownloadName(videoFormat))
+      setVideoProgress({
+        label: "Export complete",
+        value: 1,
+      })
       setStatusMessage(
         `${videoFormat.toUpperCase()} exported at ${videoSize.width}×${videoSize.height}.`
       )
@@ -572,10 +654,13 @@ export function EditorExportDialog({
                       {activeTab === "video" ? (
                         <VideoTabContent
                           isWorking={isWorking}
-                          mp4Supported={mp4Supported}
+                          mp4Supported={videoSupport.mp4}
                           onExport={handleVideoExport}
                           onVideoAspectChange={setVideoAspect}
-                          onVideoDurationChange={setVideoDuration}
+                          onVideoDurationChange={(value) => {
+                            setVideoDurationDirty(true)
+                            setVideoDuration(value)
+                          }}
                           onVideoFpsChange={setVideoFps}
                           onVideoFormatChange={setVideoFormat}
                           onVideoHeightChange={updateVideoHeight}
@@ -585,9 +670,10 @@ export function EditorExportDialog({
                           videoDuration={videoDuration}
                           videoFormat={videoFormat}
                           videoFps={videoFps}
+                          videoProgress={videoProgress}
                           videoQuality={videoQuality}
                           videoSize={videoSize}
-                          webmSupported={webmSupported}
+                          webmSupported={videoSupport.webm}
                         />
                       ) : null}
                       {activeTab === "project" ? (
@@ -643,10 +729,13 @@ export function EditorExportDialog({
                         {activeTab === "video" ? (
                           <VideoTabContent
                             isWorking={isWorking}
-                            mp4Supported={mp4Supported}
+                            mp4Supported={videoSupport.mp4}
                             onExport={handleVideoExport}
                             onVideoAspectChange={setVideoAspect}
-                            onVideoDurationChange={setVideoDuration}
+                            onVideoDurationChange={(value) => {
+                              setVideoDurationDirty(true)
+                              setVideoDuration(value)
+                            }}
                             onVideoFpsChange={setVideoFps}
                             onVideoFormatChange={setVideoFormat}
                             onVideoHeightChange={updateVideoHeight}
@@ -656,9 +745,10 @@ export function EditorExportDialog({
                             videoDuration={videoDuration}
                             videoFormat={videoFormat}
                             videoFps={videoFps}
+                            videoProgress={videoProgress}
                             videoQuality={videoQuality}
                             videoSize={videoSize}
-                            webmSupported={webmSupported}
+                            webmSupported={videoSupport.webm}
                           />
                         ) : null}
                         {activeTab === "project" ? (
@@ -798,6 +888,7 @@ function VideoTabContent({
   videoDuration,
   videoFormat,
   videoFps,
+  videoProgress,
   videoQuality,
   videoSize,
   webmSupported,
@@ -816,10 +907,15 @@ function VideoTabContent({
   videoDuration: number
   videoFormat: VideoExportFormat
   videoFps: number
+  videoProgress: { label: string; value: number } | null
   videoQuality: ExportQualityPreset
   videoSize: { height: number; width: number }
   webmSupported: boolean
 }) {
+  const selectedFormatSupported =
+    videoFormat === "webm" ? webmSupported : mp4Supported
+  const progressValue = Math.max(0, Math.min(videoProgress?.value ?? 0, 1))
+
   return (
     <section className="flex flex-col gap-[14px]">
       <FieldLabel label="Format">
@@ -896,12 +992,22 @@ function VideoTabContent({
         </FieldLabel>
       </div>
 
-      <Typography className="leading-[14px]" tone="muted" variant="caption">
-        Starts from the current playhead position.
-      </Typography>
+      <div className="flex min-h-11 flex-col justify-center gap-2">
+        <div className="h-1.5 overflow-hidden rounded-full bg-white/8">
+          <div
+            className="h-full rounded-full bg-[var(--ds-color-text-primary)] transition-[width] duration-160 ease-[var(--ease-out-cubic)]"
+            style={{
+              width: `${progressValue * 100}%`,
+            }}
+          />
+        </div>
+        <Typography className="leading-[14px]" tone="muted" variant="caption">
+          {videoProgress?.label ?? "\u00A0"}
+        </Typography>
+      </div>
 
       <Button
-        disabled={isWorking || !getSupportedVideoMimeType(videoFormat)}
+        disabled={isWorking || !selectedFormatSupported}
         onClick={() => void onExport()}
       >
         <FileArrowDownIcon size={16} weight="bold" />

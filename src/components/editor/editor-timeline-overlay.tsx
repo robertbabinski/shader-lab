@@ -5,8 +5,10 @@ import {
   BezierCurveIcon,
   CaretDownIcon,
   CaretUpIcon,
+  CircleIcon,
   PauseIcon,
   PlayIcon,
+  SnowflakeIcon,
   StopIcon,
 } from "@phosphor-icons/react"
 import { motion, useReducedMotion } from "motion/react"
@@ -246,25 +248,33 @@ function createTickPositions(duration: number) {
 }
 
 function TimelineTransport({
+  autoKey,
   currentTime,
   duration,
   expanded,
+  frozen,
   isPlaying,
   loop,
   onDurationChange,
   onStop,
+  onToggleAutoKey,
   onToggleExpanded,
+  onToggleFrozen,
   onToggleLoop,
   onTogglePlaying,
 }: {
+  autoKey: boolean
   currentTime: number
   duration: number
   expanded: boolean
+  frozen: boolean
   isPlaying: boolean
   loop: boolean
   onDurationChange: (value: number) => void
   onStop: () => void
+  onToggleAutoKey: () => void
   onToggleExpanded: () => void
+  onToggleFrozen: () => void
   onToggleLoop: () => void
   onTogglePlaying: () => void
 }) {
@@ -296,6 +306,17 @@ function TimelineTransport({
         >
           <StopIcon size={14} weight="fill" />
         </IconButton>
+        <IconButton
+          aria-label={frozen ? "Unfreeze frame" : "Freeze frame"}
+          className={cn(
+            "h-7 w-7",
+            frozen && "bg-white/12 text-[var(--ds-color-text-primary)]"
+          )}
+          onClick={onToggleFrozen}
+          variant={frozen ? "active" : "default"}
+        >
+          <SnowflakeIcon size={14} weight={frozen ? "fill" : "regular"} />
+        </IconButton>
       </div>
 
       <span
@@ -317,6 +338,20 @@ function TimelineTransport({
             Loop
           </Typography>
         </IconButton>
+        <IconButton
+          aria-label={autoKey ? "Disable auto-key" : "Enable auto-key"}
+          className={cn(
+            "h-7 w-auto gap-1.5 px-[10px]",
+            autoKey && "bg-white/12 text-[var(--ds-color-text-primary)]"
+          )}
+          onClick={onToggleAutoKey}
+          variant={autoKey ? "active" : "default"}
+        >
+          <CircleIcon size={10} weight={autoKey ? "fill" : "regular"} />
+          <Typography as="span" tone="secondary" variant="monoSm">
+            Auto-Key
+          </Typography>
+        </IconButton>
       </div>
 
       <span
@@ -326,7 +361,7 @@ function TimelineTransport({
 
       <div className="inline-flex items-center gap-2">
         <Typography as="span" tone="secondary" variant="monoSm">
-          Duration
+          Dur
         </Typography>
         <input
           aria-label="Timeline duration in seconds"
@@ -386,7 +421,11 @@ export function EditorTimelineOverlay() {
   const reduceMotion = useReducedMotion() ?? false
   const immersiveCanvas = useEditorStore((state) => state.immersiveCanvas)
   const timelinePanelOpen = useEditorStore((state) => state.timelinePanelOpen)
+  const timelineAutoKey = useEditorStore((state) => state.timelineAutoKey)
   const closeTimelinePanel = useEditorStore((state) => state.closeTimelinePanel)
+  const toggleTimelineAutoKey = useEditorStore(
+    (state) => state.toggleTimelineAutoKey
+  )
   const toggleTimelinePanel = useEditorStore(
     (state) => state.toggleTimelinePanel
   )
@@ -415,6 +454,8 @@ export function EditorTimelineOverlay() {
   )
   const setKeyframeTime = useTimelineStore((state) => state.setKeyframeTime)
   const removeKeyframe = useTimelineStore((state) => state.removeKeyframe)
+  const frozen = useTimelineStore((state) => state.frozen)
+  const setFrozen = useTimelineStore((state) => state.setFrozen)
   const stop = useTimelineStore((state) => state.stop)
   const togglePlaying = useTimelineStore((state) => state.togglePlaying)
 
@@ -652,14 +693,18 @@ export function EditorTimelineOverlay() {
             )}
           >
             <TimelineTransport
+              autoKey={timelineAutoKey}
               currentTime={currentTime}
               duration={duration}
               expanded={timelinePanelOpen}
+              frozen={frozen}
               isPlaying={isPlaying}
               loop={loop}
               onDurationChange={setDuration}
               onStop={stop}
+              onToggleAutoKey={toggleTimelineAutoKey}
               onToggleExpanded={toggleTimelinePanel}
+              onToggleFrozen={() => setFrozen(!frozen)}
               onToggleLoop={() => setLoop(!loop)}
               onTogglePlaying={togglePlaying}
             />

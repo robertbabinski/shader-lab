@@ -1,9 +1,17 @@
 "use client"
 
-import { PlusIcon } from "@phosphor-icons/react"
+import {
+  CameraIcon,
+  CodeIcon,
+  GradientIcon,
+  ImageIcon,
+  PlusIcon,
+  TextTIcon,
+  VideoCameraIcon,
+} from "@phosphor-icons/react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import Image from "next/image"
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
+import { type ComponentType, useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { GlassPanel } from "@/components/ui/glass-panel"
 import { cn } from "@/lib/cn"
@@ -38,6 +46,7 @@ export type AddLayerAction =
 type LayerPickerCategory = "all" | "core" | "distort"
 
 type SourceItem = {
+  icon: ComponentType<{ size: number; weight: "regular" | "bold" }>
   label: string
   value: AddLayerAction
 }
@@ -65,12 +74,12 @@ const CATEGORY_OPTIONS: readonly {
 ] as const
 
 const SOURCE_ITEMS: readonly SourceItem[] = [
-  { label: "Image", value: "image" },
-  { label: "Video", value: "video" },
-  { label: "Camera", value: "live" },
-  { label: "Text", value: "text" },
-  { label: "Mesh Gradient", value: "gradient" },
-  { label: "Custom Shader", value: "custom-shader" },
+  { icon: ImageIcon, label: "Image", value: "image" },
+  { icon: VideoCameraIcon, label: "Video", value: "video" },
+  { icon: CameraIcon, label: "Camera", value: "live" },
+  { icon: TextTIcon, label: "Text", value: "text" },
+  { icon: GradientIcon, label: "Mesh Gradient", value: "gradient" },
+  { icon: CodeIcon, label: "Custom Shader", value: "custom-shader" },
 ] as const
 
 const EFFECT_ITEMS: readonly EffectItem[] = [
@@ -327,12 +336,15 @@ function SourceButton({
   item: SourceItem
   onSelect: (action: AddLayerAction) => void
 }) {
+  const Icon = item.icon
+
   return (
     <button
-      className="inline-flex h-7 items-center justify-center whitespace-nowrap rounded-full border border-white/8 bg-[rgb(255_255_255_/_0.03)] px-3 font-[var(--ds-font-mono)] text-[10px] text-[var(--ds-color-text-secondary)] leading-none transition-[transform,border-color,background-color,color] duration-[180ms] ease-[cubic-bezier(0.32,0.72,0,1)] hover:border-white/14 hover:bg-[rgb(255_255_255_/_0.07)] hover:text-[var(--ds-color-text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--ds-border-active)] focus-visible:outline-offset-2 active:scale-[0.97]"
+      className="inline-flex h-7 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-white/8 bg-[rgb(255_255_255_/_0.03)] px-3 font-[var(--ds-font-mono)] text-[10px] text-[var(--ds-color-text-secondary)] leading-none transition-[transform,border-color,background-color,color] duration-[180ms] ease-[cubic-bezier(0.32,0.72,0,1)] hover:border-white/14 hover:bg-[rgb(255_255_255_/_0.07)] hover:text-[var(--ds-color-text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--ds-border-active)] focus-visible:outline-offset-2 active:scale-[0.97]"
       onClick={() => onSelect(item.value)}
       type="button"
     >
+      <Icon size={12} weight="regular" />
       {item.label}
     </button>
   )

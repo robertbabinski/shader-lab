@@ -6,6 +6,7 @@ import {
   EyeSlashIcon,
   FolderIcon,
   SidebarSimpleIcon,
+  TrashIcon,
 } from "@phosphor-icons/react"
 import { Reorder, useDragControls } from "motion/react"
 import {
@@ -27,6 +28,7 @@ import { IconButton } from "@/components/ui/icon-button"
 import { Select } from "@/components/ui/select"
 import { Typography } from "@/components/ui/typography"
 import { cn } from "@/lib/cn"
+import { inferFileAssetKind } from "@/lib/editor/media-file"
 import { useAssetStore } from "@/store/asset-store"
 import { useEditorStore } from "@/store/editor-store"
 import { useLayerStore } from "@/store/layer-store"
@@ -120,29 +122,7 @@ function getAcceptForAssetKind(kind: AssetKind): string {
 }
 
 function inferSelectedFileKind(file: File): AssetKind | null {
-  const mimeType = file.type.toLowerCase()
-  const fileName = file.name.toLowerCase()
-
-  if (mimeType.startsWith("image/")) {
-    return "image"
-  }
-
-  if (mimeType.startsWith("video/")) {
-    return "video"
-  }
-
-  if (
-    fileName.endsWith(".glb") ||
-    fileName.endsWith(".gltf") ||
-    fileName.endsWith(".obj") ||
-    mimeType === "model/gltf-binary" ||
-    mimeType === "model/gltf+json" ||
-    mimeType === "model/obj"
-  ) {
-    return "model"
-  }
-
-  return null
+  return inferFileAssetKind(file)
 }
 
 type LayerListItemProps = {
@@ -193,7 +173,7 @@ const LayerListItem = memo(function LayerListItem({
     <Reorder.Item
       as="li"
       className={cn(
-        "relative grid min-h-11 grid-cols-[minmax(0,1fr)_28px_28px] items-center gap-[var(--ds-space-2)] rounded-[var(--ds-radius-control)] border border-transparent px-2 py-[6px] transition-[background-color,border-color,box-shadow] duration-160 ease-[var(--ease-out-cubic)]",
+        "relative grid min-h-11 grid-cols-[minmax(0,1fr)_28px_28px_28px] items-center gap-[var(--ds-space-2)] rounded-[var(--ds-radius-control)] border border-transparent px-2 py-[6px] transition-[background-color,border-color,box-shadow] duration-160 ease-[var(--ease-out-cubic)]",
         !layer.locked &&
           "cursor-pointer hover:border-[var(--ds-border-subtle)] hover:bg-[var(--ds-color-surface-subtle)]",
         isSelected &&
@@ -290,6 +270,17 @@ const LayerListItem = memo(function LayerListItem({
           )}
         </IconButton>
       )}
+
+      <IconButton
+        aria-label={`Delete ${layer.name}`}
+        onClick={(event) => {
+          event.stopPropagation()
+          onLayerAction(layer.id, "delete")
+        }}
+        variant="ghost"
+      >
+        <TrashIcon size={14} weight="regular" />
+      </IconButton>
     </Reorder.Item>
   )
 })

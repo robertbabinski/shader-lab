@@ -382,6 +382,7 @@ export type WebGPUStatus =
 export interface EditorStateSnapshot {
   canvasSize: Size
   immersiveCanvas: boolean
+  interactiveEditDepth: number
   outputSize: Size
   panOffset: Vector2
   renderScale: RenderScale
@@ -392,6 +393,7 @@ export interface EditorStateSnapshot {
   }
   sidebarView: SidebarView
   theme: "dark" | "light"
+  timelineAutoKey: boolean
   timelinePanelOpen: boolean
   webgpuError: string | null
   webgpuStatus: WebGPUStatus

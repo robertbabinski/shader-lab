@@ -36,6 +36,9 @@ export function EditorTopBar() {
   const setPan = useEditorStore((state) => state.setPan)
   const setZoom = useEditorStore((state) => state.setZoom)
   const resetView = useEditorStore((state) => state.resetView)
+  const interactiveEditDepth = useEditorStore(
+    (state) => state.interactiveEditDepth
+  )
   const historyPastLength = useHistoryStore((state) => state.past.length)
   const historyFutureLength = useHistoryStore((state) => state.future.length)
   const pushSnapshot = useHistoryStore((state) => state.pushSnapshot)
@@ -87,6 +90,10 @@ export function EditorTopBar() {
         pendingBaseSnapshotRef.current = committedSnapshotRef.current
       }
 
+      if (interactiveEditDepth > 0) {
+        return
+      }
+
       if (historyTimerRef.current !== null) {
         window.clearTimeout(historyTimerRef.current)
       }
@@ -96,8 +103,20 @@ export function EditorTopBar() {
         historyTimerRef.current = null
       }, HISTORY_COMMIT_DEBOUNCE_MS)
     },
-    [flushPendingHistory]
+    [flushPendingHistory, interactiveEditDepth]
   )
+
+  useEffect(() => {
+    if (interactiveEditDepth > 0 && historyTimerRef.current !== null) {
+      window.clearTimeout(historyTimerRef.current)
+      historyTimerRef.current = null
+      return
+    }
+
+    if (interactiveEditDepth === 0) {
+      flushPendingHistory()
+    }
+  }, [flushPendingHistory, interactiveEditDepth])
 
   const handleUndo = useCallback(() => {
     flushPendingHistory()

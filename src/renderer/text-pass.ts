@@ -32,6 +32,7 @@ export class TextPass extends PassNode {
   private canvas: HTMLCanvasElement | null = null
   private width = 1
   private height = 1
+  private logicalWidth = 1
   private params: LayerParameterValues = {}
   private dirty = true
 
@@ -71,6 +72,11 @@ export class TextPass extends PassNode {
     this.dirty = true
   }
 
+  override updateLogicalSize(width: number, _height: number): void {
+    this.logicalWidth = Math.max(1, width)
+    this.dirty = true
+  }
+
   override dispose(): void {
     this.textTexture?.dispose()
     this.placeholder.dispose()
@@ -99,14 +105,17 @@ export class TextPass extends PassNode {
       return
     }
 
+    const scaleFactor = this.width / this.logicalWidth
+
     const text =
       typeof this.params.text === "string" && this.params.text.length > 0
         ? this.params.text
         : "basement.studio"
-    const fontSize =
+    const baseFontSize =
       typeof this.params.fontSize === "number"
         ? Math.max(48, this.params.fontSize)
         : 280
+    const fontSize = Math.round(baseFontSize * scaleFactor)
     const fontWeight =
       typeof this.params.fontWeight === "number"
         ? Math.round(this.params.fontWeight)

@@ -37,12 +37,23 @@ export function PropertiesSidebar() {
   const [expandedParamGroups, setExpandedParamGroups] = useState<
     Record<string, boolean>
   >({})
+  const [livePreviewOverrides, setLivePreviewOverrides] = useState<{
+    hue?: number
+    opacity?: number
+    params: Record<string, ParameterValue>
+    saturation?: number
+  }>({ params: {} })
   const [panelHeight, setPanelHeight] = useState<number | null>(null)
   const viewResizeObserverRef = useRef<ResizeObserver | null>(null)
   const rightSidebarVisible = useEditorStore((state) => state.sidebars.right)
   const sidebarView = useEditorStore((state) => state.sidebarView)
   const setSidebarView = useEditorStore((state) => state.setSidebarView)
+  const timelineAutoKey = useEditorStore((state) => state.timelineAutoKey)
   const timelinePanelOpen = useEditorStore((state) => state.timelinePanelOpen)
+  const beginInteractiveEdit = useEditorStore(
+    (state) => state.beginInteractiveEdit
+  )
+  const endInteractiveEdit = useEditorStore((state) => state.endInteractiveEdit)
   const selectedLayerId = useLayerStore((state) => state.selectedLayerId)
   const selectedLayer = useLayerStore((state) => {
     if (!selectedLayerId) return null
@@ -61,6 +72,23 @@ export function PropertiesSidebar() {
   const timelineTracks = useTimelineStore((state) => state.tracks)
   const upsertKeyframe = useTimelineStore((state) => state.upsertKeyframe)
   const assets = useAssetStore((state) => state.assets)
+  const activeGestureDepthRef = useRef(0)
+  const activeGestureTimeRef = useRef<number | null>(null)
+
+  const resetLivePreviewOverrides = useCallback(() => {
+    setLivePreviewOverrides((current) => {
+      if (
+        current.hue === undefined &&
+        current.opacity === undefined &&
+        current.saturation === undefined &&
+        Object.keys(current.params).length === 0
+      ) {
+        return current
+      }
+
+      return { params: {} }
+    })
+  }, [])
 
   const assetById = useMemo(
     () => new Map(assets.map((asset) => [asset.id, asset])),
@@ -116,32 +144,39 @@ export function PropertiesSidebar() {
 
     if (!(timelinePanelOpen && evaluatedSelectedLayer)) {
       return {
-        hue: selectedLayer.hue,
-        opacity: selectedLayer.opacity,
-        params: selectedLayer.params,
-        saturation: selectedLayer.saturation,
+        hue: livePreviewOverrides.hue ?? selectedLayer.hue,
+        opacity: livePreviewOverrides.opacity ?? selectedLayer.opacity,
+        params: {
+          ...selectedLayer.params,
+          ...livePreviewOverrides.params,
+        },
+        saturation: livePreviewOverrides.saturation ?? selectedLayer.saturation,
       }
     }
 
     return {
       hue:
-        typeof evaluatedSelectedLayer.properties.hue === "number"
+        livePreviewOverrides.hue ??
+        (typeof evaluatedSelectedLayer.properties.hue === "number"
           ? evaluatedSelectedLayer.properties.hue
-          : selectedLayer.hue,
+          : selectedLayer.hue),
       opacity:
-        typeof evaluatedSelectedLayer.properties.opacity === "number"
+        livePreviewOverrides.opacity ??
+        (typeof evaluatedSelectedLayer.properties.opacity === "number"
           ? evaluatedSelectedLayer.properties.opacity
-          : selectedLayer.opacity,
+          : selectedLayer.opacity),
       params: {
         ...selectedLayer.params,
         ...evaluatedSelectedLayer.params,
+        ...livePreviewOverrides.params,
       },
       saturation:
-        typeof evaluatedSelectedLayer.properties.saturation === "number"
+        livePreviewOverrides.saturation ??
+        (typeof evaluatedSelectedLayer.properties.saturation === "number"
           ? evaluatedSelectedLayer.properties.saturation
-          : selectedLayer.saturation,
+          : selectedLayer.saturation),
     }
-  }, [evaluatedSelectedLayer, selectedLayer, timelinePanelOpen])
+  }, [evaluatedSelectedLayer, livePreviewOverrides, selectedLayer, timelinePanelOpen])
 
   const heightTransition = reduceMotion
     ? { duration: 0.12, ease: "easeOut" as const }
@@ -223,6 +258,18 @@ export function PropertiesSidebar() {
     }
   }, [])
 
+  useEffect(() => {
+    resetLivePreviewOverrides()
+  }, [resetLivePreviewOverrides, selectedLayerId])
+
+  useEffect(() => {
+    if (activeGestureDepthRef.current > 0) {
+      return
+    }
+
+    resetLivePreviewOverrides()
+  }, [currentTime, resetLivePreviewOverrides, timelineAutoKey, timelinePanelOpen])
+
   const handleToggleParamGroup = useCallback((groupId: string) => {
     setExpandedParamGroups((current) => ({
       ...current,
@@ -245,6 +292,41 @@ export function PropertiesSidebar() {
     [upsertKeyframe]
   )
 
+  const beginPropertyGesture = useCallback(() => {
+    if (activeGestureDepthRef.current === 0) {
+      activeGestureTimeRef.current = useTimelineStore.getState().currentTime
+    }
+
+    activeGestureDepthRef.current += 1
+    beginInteractiveEdit()
+  }, [beginInteractiveEdit])
+
+  const endPropertyGesture = useCallback(() => {
+    activeGestureDepthRef.current = Math.max(
+      0,
+      activeGestureDepthRef.current - 1
+    )
+
+    if (activeGestureDepthRef.current === 0) {
+      activeGestureTimeRef.current = null
+    }
+
+    endInteractiveEdit()
+  }, [endInteractiveEdit])
+
+  useEffect(() => {
+    return () => {
+      const remainingDepth = activeGestureDepthRef.current
+
+      activeGestureDepthRef.current = 0
+      activeGestureTimeRef.current = null
+
+      for (let index = 0; index < remainingDepth; index += 1) {
+        endInteractiveEdit()
+      }
+    }
+  }, [endInteractiveEdit])
+
   const handleTimelineAwareLayerAdjustment = useCallback(
     (
       binding: AnimatedPropertyBinding,
@@ -253,13 +335,32 @@ export function PropertiesSidebar() {
     ) => {
       if (
         selectedLayer &&
-        timelinePanelOpen &&
         hasTrackForBinding(selectedLayerTracks, selectedLayer.id, binding)
       ) {
+        if (!timelineAutoKey) {
+          if (binding.kind === "layer") {
+            const overrideKey =
+              binding.property === "hue" ||
+              binding.property === "opacity" ||
+              binding.property === "saturation"
+                ? binding.property
+                : null
+
+            if (overrideKey) {
+              setLivePreviewOverrides((current) => ({
+                ...current,
+                [overrideKey]:
+                  typeof value === "number" ? value : current[overrideKey],
+              }))
+            }
+          }
+          return
+        }
+
         upsertKeyframe({
           binding,
           layerId: selectedLayer.id,
-          time: currentTime,
+          time: activeGestureTimeRef.current ?? currentTime,
           value,
         })
         return
@@ -271,7 +372,7 @@ export function PropertiesSidebar() {
       currentTime,
       selectedLayer,
       selectedLayerTracks,
-      timelinePanelOpen,
+      timelineAutoKey,
       upsertKeyframe,
     ]
   )
@@ -288,13 +389,23 @@ export function PropertiesSidebar() {
 
       if (
         binding &&
-        timelinePanelOpen &&
         hasTrackForBinding(selectedLayerTracks, selectedLayer.id, binding)
       ) {
+        if (!timelineAutoKey) {
+          setLivePreviewOverrides((current) => ({
+            ...current,
+            params: {
+              ...current.params,
+              [key]: value,
+            },
+          }))
+          return
+        }
+
         upsertKeyframe({
           binding,
           layerId: selectedLayer.id,
-          time: currentTime,
+          time: activeGestureTimeRef.current ?? currentTime,
           value,
         })
         return
@@ -307,7 +418,7 @@ export function PropertiesSidebar() {
       selectedLayer,
       selectedLayerTracks,
       selectedVisibleParams,
-      timelinePanelOpen,
+      timelineAutoKey,
       updateLayerParam,
       upsertKeyframe,
     ]
@@ -322,6 +433,8 @@ export function PropertiesSidebar() {
         definitionName: selectedDefinition?.defaultName ?? selectedLayer.type,
         expandedParamGroups,
         hue: displayedLayerState?.hue ?? selectedLayer.hue,
+        onInteractionEnd: endPropertyGesture,
+        onInteractionStart: beginPropertyGesture,
         layerId: selectedLayer.id,
         layerKind: selectedDefinition?.kind ?? "effect",
         layerName: selectedLayer.name,

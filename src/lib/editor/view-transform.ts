@@ -2,7 +2,7 @@ import type { Vector2 } from "@/types/editor"
 
 export const ZOOM_MIN = 0.125
 export const ZOOM_MAX = 6
-export const ZOOM_PRESET_STEPS = [0.125, 0.25, 0.5, 1, 2, 4, 6] as const
+export const ZOOM_PRESET_STEPS = [0.125, 0.25, 0.33, 0.5, 0.67, 0.75, 1, 1.25, 1.5, 2, 3, 4, 6] as const
 
 export function clampZoom(zoom: number): number {
   if (!Number.isFinite(zoom)) {

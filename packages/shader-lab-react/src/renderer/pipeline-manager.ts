@@ -106,6 +106,7 @@ function createLayerSignature(layer: ShaderLabLayerConfig): string {
       typeof layer.params.sourceFileName === "string"
         ? layer.params.sourceFileName
         : "",
+      layer.params.effectMode === true ? "effect" : "source",
     ].join("|")
   }
 

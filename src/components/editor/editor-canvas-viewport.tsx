@@ -1,13 +1,16 @@
 "use client"
 
-import { useEffect, useMemo } from "react"
+import { type DragEvent, useCallback, useEffect, useMemo, useState } from "react"
 import { useEditorRenderer } from "@/hooks/use-editor-renderer"
+import { inferFileAssetKind } from "@/lib/editor/media-file"
 import {
   applyZoomAtPoint,
   clampZoom,
   getWheelZoomFactor,
 } from "@/lib/editor/view-transform"
+import { useAssetStore } from "@/store/asset-store"
 import { useEditorStore } from "@/store/editor-store"
+import { useLayerStore } from "@/store/layer-store"
 import type { CompositionAspect } from "@/types/editor"
 
 function getCompositionAspectRatio(
@@ -76,6 +79,48 @@ export function EditorCanvasViewport() {
     canvasSize,
   ])
 
+  const [isDragOver, setIsDragOver] = useState(false)
+  const addLayer = useLayerStore((state) => state.addLayer)
+  const setLayerAsset = useLayerStore((state) => state.setLayerAsset)
+  const loadAsset = useAssetStore((state) => state.loadAsset)
+
+  const handleDragOver = useCallback((event: DragEvent) => {
+    event.preventDefault()
+    setIsDragOver(true)
+  }, [])
+
+  const handleDragLeave = useCallback((event: DragEvent) => {
+    if (
+      event.currentTarget instanceof HTMLElement &&
+      !event.currentTarget.contains(event.relatedTarget as Node)
+    ) {
+      setIsDragOver(false)
+    }
+  }, [])
+
+  const handleDrop = useCallback(
+    async (event: DragEvent) => {
+      event.preventDefault()
+      setIsDragOver(false)
+
+      const files = Array.from(event.dataTransfer.files)
+
+      for (const file of files) {
+        const kind = inferFileAssetKind(file)
+        if (kind === "image" || kind === "video") {
+          try {
+            const asset = await loadAsset(file)
+            const layerId = addLayer(kind)
+            setLayerAsset(layerId, asset.id)
+          } catch {
+            // No-op.
+          }
+        }
+      }
+    },
+    [addLayer, loadAsset, setLayerAsset]
+  )
+
   useEffect(() => {
     if (!immersiveCanvas) {
       return
@@ -138,7 +183,13 @@ export function EditorCanvasViewport() {
 
   return (
     <>
-      <div ref={viewportRef} className="absolute inset-0 overflow-hidden">
+      <div
+        ref={viewportRef}
+        className="absolute inset-0 overflow-hidden"
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
         <div
           className="absolute inset-0"
           style={{
@@ -184,6 +235,14 @@ export function EditorCanvasViewport() {
             ) : null}
           </div>
         </div>
+
+        {isDragOver ? (
+          <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center border-2 border-dashed border-white/30 bg-black/30 backdrop-blur-[2px]">
+            <span className="font-[var(--ds-font-mono)] text-xs text-white/70">
+              Drop to add layer
+            </span>
+          </div>
+        ) : null}
       </div>
 
       {!isReady ? (

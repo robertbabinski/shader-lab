@@ -8,6 +8,8 @@ type XYPadProps = {
   label?: ReactNode
   max?: number
   min?: number
+  onInteractionEnd?: (() => void) | undefined
+  onInteractionStart?: (() => void) | undefined
   onValueChange: (value: [number, number]) => void
   step?: number
   value: [number, number]
@@ -34,11 +36,14 @@ export function XYPad({
   label,
   max = 1,
   min = -1,
+  onInteractionEnd,
+  onInteractionStart,
   onValueChange,
   step = 0.01,
   value,
 }: XYPadProps) {
   const surfaceRef = useRef<HTMLButtonElement | null>(null)
+  const gestureActiveRef = useRef(false)
   const range = Math.max(max - min, Number.EPSILON)
 
   const style = useMemo(
@@ -72,6 +77,11 @@ export function XYPad({
   }
 
   const handlePointerDown = (event: PointerEvent<HTMLButtonElement>) => {
+    if (!gestureActiveRef.current) {
+      gestureActiveRef.current = true
+      onInteractionStart?.()
+    }
+
     event.currentTarget.setPointerCapture(event.pointerId)
     commitPosition(event.clientX, event.clientY)
   }
@@ -82,6 +92,15 @@ export function XYPad({
     }
 
     commitPosition(event.clientX, event.clientY)
+  }
+
+  const handlePointerEnd = () => {
+    if (!gestureActiveRef.current) {
+      return
+    }
+
+    gestureActiveRef.current = false
+    onInteractionEnd?.()
   }
 
   const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
@@ -106,10 +125,15 @@ export function XYPad({
     }
 
     event.preventDefault()
+    if (!gestureActiveRef.current) {
+      gestureActiveRef.current = true
+      onInteractionStart?.()
+    }
     onValueChange([
       clamp(roundToStep(nextX, step, min), min, max),
       clamp(roundToStep(nextY, step, min), min, max),
     ])
+    handlePointerEnd()
   }
 
   return (
@@ -130,8 +154,10 @@ export function XYPad({
         aria-label={typeof label === "string" ? label : "XY pad"}
         className="relative h-[156px] w-full cursor-crosshair overflow-hidden rounded-[calc(var(--ds-radius-control)+2px)] border border-white/8 bg-[radial-gradient(circle_at_center,rgb(255_255_255_/_0.05),transparent_58%),linear-gradient(180deg,rgb(255_255_255_/_0.04),rgb(255_255_255_/_0.01))] shadow-[inset_0_1px_0_rgb(255_255_255_/_0.04)] touch-none focus-visible:outline-none focus-visible:shadow-[inset_0_1px_0_rgb(255_255_255_/_0.04),0_0_0_3px_rgb(255_255_255_/_0.12)] active:[&_.xy-handle]:scale-90"
         onKeyDown={handleKeyDown}
+        onPointerCancel={handlePointerEnd}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerEnd}
         ref={surfaceRef}
         style={style}
         type="button"

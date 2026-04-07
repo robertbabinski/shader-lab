@@ -18,6 +18,8 @@ type PopupPosition = {
 
 type ColorPickerProps = {
   className?: string
+  onInteractionEnd?: (() => void) | undefined
+  onInteractionStart?: (() => void) | undefined
   onValueChange: (value: string) => void
   value: string
 }
@@ -134,10 +136,17 @@ function hueToHex(hue: number): string {
   return rgbToHex(rgb.r, rgb.g, rgb.b)
 }
 
-export function ColorPicker({ className, onValueChange, value }: ColorPickerProps) {
+export function ColorPicker({
+  className,
+  onInteractionEnd,
+  onInteractionStart,
+  onValueChange,
+  value,
+}: ColorPickerProps) {
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const surfaceRef = useRef<HTMLDivElement | null>(null)
   const hueRef = useRef<HTMLDivElement | null>(null)
+  const gestureActiveRef = useRef(false)
   const [isOpen, setIsOpen] = useState(false)
   const [inputValue, setInputValue] = useState(normalizeHex(value) ?? "#FFFFFF")
   const [popupPosition, setPopupPosition] = useState<PopupPosition>({ left: 0, top: 0 })
@@ -218,6 +227,24 @@ export function ColorPicker({ className, onValueChange, value }: ColorPickerProp
     onValueChange(nextHex)
   }
 
+  const beginInteraction = () => {
+    if (gestureActiveRef.current) {
+      return
+    }
+
+    gestureActiveRef.current = true
+    onInteractionStart?.()
+  }
+
+  const endInteraction = () => {
+    if (!gestureActiveRef.current) {
+      return
+    }
+
+    gestureActiveRef.current = false
+    onInteractionEnd?.()
+  }
+
   const updateSurface = (clientX: number, clientY: number) => {
     const surface = surfaceRef.current
     if (!surface) {
@@ -242,6 +269,7 @@ export function ColorPicker({ className, onValueChange, value }: ColorPickerProp
   }
 
   const handleSurfacePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    beginInteraction()
     event.currentTarget.setPointerCapture(event.pointerId)
     updateSurface(event.clientX, event.clientY)
   }
@@ -255,6 +283,7 @@ export function ColorPicker({ className, onValueChange, value }: ColorPickerProp
   }
 
   const handleHuePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    beginInteraction()
     event.currentTarget.setPointerCapture(event.pointerId)
     updateHue(event.clientX)
   }
@@ -298,8 +327,10 @@ export function ColorPicker({ className, onValueChange, value }: ColorPickerProp
               <GlassPanel className="flex w-[208px] flex-col gap-3 p-3" variant="panel">
                 <div
                   className="relative h-[132px] w-full cursor-crosshair overflow-hidden rounded-[10px] select-none"
+                  onPointerCancel={endInteraction}
                   onPointerDown={handleSurfacePointerDown}
                   onPointerMove={handleSurfacePointerMove}
+                  onPointerUp={endInteraction}
                   ref={surfaceRef}
                   style={{ backgroundColor: hueColor }}
                 >
@@ -316,8 +347,10 @@ export function ColorPicker({ className, onValueChange, value }: ColorPickerProp
 
                 <div
                   className="relative h-3 w-full cursor-ew-resize rounded-full select-none bg-[linear-gradient(90deg,#ff0000_0%,#ffff00_16.66%,#00ff00_33.33%,#00ffff_50%,#0000ff_66.66%,#ff00ff_83.33%,#ff0000_100%)]"
+                  onPointerCancel={endInteraction}
                   onPointerDown={handleHuePointerDown}
                   onPointerMove={handleHuePointerMove}
+                  onPointerUp={endInteraction}
                   ref={hueRef}
                 >
                   <div
@@ -330,15 +363,18 @@ export function ColorPicker({ className, onValueChange, value }: ColorPickerProp
                   <input
                     className="min-h-[30px] w-full rounded-[var(--ds-radius-control)] border border-[var(--ds-border-divider)] bg-white/4 px-[10px] font-[var(--ds-font-mono)] text-[11px] leading-[14px] text-[var(--ds-color-text-secondary)] uppercase outline-none focus:border-[var(--ds-border-active)]"
                     onChange={(event) => {
+                      beginInteraction()
                       const nextValue = event.target.value.toUpperCase()
                       setInputValue(nextValue)
                       const nextHex = normalizeHex(nextValue)
                       if (!nextHex) {
+                        endInteraction()
                         return
                       }
                       const rgb = hexToRgb(nextHex)
                       setColor(rgbToHsv(rgb.r, rgb.g, rgb.b))
                       onValueChange(nextHex)
+                      endInteraction()
                     }}
                     spellCheck={false}
                     type="text"

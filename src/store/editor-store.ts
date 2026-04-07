@@ -1,6 +1,7 @@
 import { create } from "zustand"
 import { getDefaultProjectComposition } from "@/lib/editor/default-project"
 import { DEFAULT_CANVAS_SIZE } from "@/lib/editor/layers"
+import type { EditorRenderer } from "@/renderer/contracts"
 import type {
   EditorStateSnapshot,
   RenderScale,
@@ -13,12 +14,15 @@ import { DEFAULT_SCENE_CONFIG } from "@/types/editor"
 const DEFAULT_PROJECT_COMPOSITION = getDefaultProjectComposition()
 
 export interface EditorStoreState extends EditorStateSnapshot {
+  liveRenderer: EditorRenderer | null
   startupPreviewDismissed: boolean
 }
 
 export interface EditorStoreActions {
+  beginInteractiveEdit: () => void
   closeTimelinePanel: () => void
   dismissStartupPreview: () => void
+  endInteractiveEdit: () => void
   enterImmersiveCanvas: () => void
   exitImmersiveCanvas: () => void
   openTimelinePanel: () => void
@@ -30,10 +34,13 @@ export interface EditorStoreActions {
   setRenderScale: (scale: RenderScale) => void
   setSidebarOpen: (side: "left" | "right", open: boolean) => void
   setTheme: (theme: "dark" | "light") => void
+  setTimelineAutoKey: (enabled: boolean) => void
   setTimelinePanelOpen: (open: boolean) => void
   setSidebarView: (view: SidebarView) => void
+  setLiveRenderer: (renderer: EditorRenderer | null) => void
   setWebGPUStatus: (status: WebGPUStatus, error?: string | null) => void
   setZoom: (zoom: number) => void
+  toggleTimelineAutoKey: () => void
   toggleTimelinePanel: () => void
   toggleSidebar: (side: "left" | "right") => void
   updateSceneConfig: (updates: Partial<SceneConfig>) => void
@@ -55,6 +62,8 @@ function clampCanvasDimension(value: number): number {
 export const useEditorStore = create<EditorStore>((set) => ({
   canvasSize: DEFAULT_CANVAS_SIZE,
   immersiveCanvas: false,
+  interactiveEditDepth: 0,
+  liveRenderer: null,
   outputSize: DEFAULT_PROJECT_COMPOSITION,
   panOffset: { x: 0, y: 0 },
   renderScale: 1,
@@ -65,6 +74,7 @@ export const useEditorStore = create<EditorStore>((set) => ({
   },
   sidebarView: "properties",
   theme: "dark",
+  timelineAutoKey: false,
   timelinePanelOpen: false,
   webgpuError: null,
   webgpuStatus: "idle",
@@ -79,6 +89,18 @@ export const useEditorStore = create<EditorStore>((set) => ({
             startupPreviewDismissed: true,
           }
     )
+  },
+
+  beginInteractiveEdit: () => {
+    set((state) => ({
+      interactiveEditDepth: state.interactiveEditDepth + 1,
+    }))
+  },
+
+  endInteractiveEdit: () => {
+    set((state) => ({
+      interactiveEditDepth: Math.max(0, state.interactiveEditDepth - 1),
+    }))
   },
 
   setZoom: (zoom) => {
@@ -148,6 +170,12 @@ export const useEditorStore = create<EditorStore>((set) => ({
     })
   },
 
+  setTimelineAutoKey: (timelineAutoKey) => {
+    set({
+      timelineAutoKey,
+    })
+  },
+
   openTimelinePanel: () => {
     set({
       timelinePanelOpen: true,
@@ -163,6 +191,12 @@ export const useEditorStore = create<EditorStore>((set) => ({
   toggleTimelinePanel: () => {
     set((state) => ({
       timelinePanelOpen: !state.timelinePanelOpen,
+    }))
+  },
+
+  toggleTimelineAutoKey: () => {
+    set((state) => ({
+      timelineAutoKey: !state.timelineAutoKey,
     }))
   },
 
@@ -224,6 +258,10 @@ export const useEditorStore = create<EditorStore>((set) => ({
     set((state) => ({
       sceneConfig: { ...state.sceneConfig, ...updates },
     }))
+  },
+
+  setLiveRenderer: (liveRenderer) => {
+    set({ liveRenderer })
   },
 
   setWebGPUStatus: (webgpuStatus, webgpuError = null) => {

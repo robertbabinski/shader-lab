@@ -81,8 +81,10 @@ export function useEditorRenderer() {
 
         rendererRef.current = renderer
         await renderer.initialize()
+        editorStore.setLiveRenderer(renderer)
 
         if (isDisposed) {
+          editorStore.setLiveRenderer(null)
           renderer.dispose()
           return
         }
@@ -113,25 +115,34 @@ export function useEditorRenderer() {
           const layerState = useLayerStore.getState()
           const assetState = useAssetStore.getState()
           const editorState = useEditorStore.getState()
-          const delta = Math.max(0, (now - lastFrameTime) / 1000)
+          const rawDelta = Math.max(0, (now - lastFrameTime) / 1000)
 
           lastFrameTime = now
-          previewTime += delta
 
           let timelineState = useTimelineStore.getState()
+          const frozen = timelineState.frozen
+          const delta = frozen ? 0 : rawDelta
 
-          if (timelineState.isPlaying) {
+          if (!frozen) {
+            previewTime += rawDelta
+          }
+
+          if (timelineState.isPlaying && !frozen) {
             timelineState.advance(delta)
             timelineState = useTimelineStore.getState()
           }
 
-          if (delta > 0) {
-            useMetricsStore.getState().setFps(1 / delta)
+          if (rawDelta > 0) {
+            useMetricsStore.getState().setFps(1 / rawDelta)
           }
+
+          const clockTime = timelineState.isPlaying ? timelineState.currentTime : previewTime
+          useTimelineStore.getState().setLastRenderedClockTime(clockTime)
+          renderer.setPreviewFrozen(frozen)
 
           const frame = buildRendererFrame({
             assets: assetState.assets,
-            clockTime: timelineState.isPlaying ? timelineState.currentTime : previewTime,
+            clockTime,
             delta,
             layers: layerState.layers,
             outputSize: editorState.outputSize,
@@ -168,6 +179,7 @@ export function useEditorRenderer() {
         window.cancelAnimationFrame(animationFrameRef.current)
       }
 
+      useEditorStore.getState().setLiveRenderer(null)
       rendererRef.current?.dispose()
       rendererRef.current = null
       setIsReady(false)
