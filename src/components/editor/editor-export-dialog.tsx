@@ -5,7 +5,7 @@ import {
   FileArrowDownIcon,
   FolderIcon,
   UploadSimpleIcon,
-  X,
+  XIcon,
 } from "@phosphor-icons/react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import {
@@ -160,6 +160,7 @@ export function EditorExportDialog({
     webm: false,
   })
   const [isCopyingShader, setIsCopyingShader] = useState(false)
+  const videoExportAbortRef = useRef<AbortController | null>(null)
   const importInputRef = useRef<HTMLInputElement | null>(null)
   const measureRef = useRef<HTMLDivElement | null>(null)
 
@@ -448,13 +449,21 @@ export function EditorExportDialog({
   }
 
   async function handleVideoExport() {
+    if (videoExportAbortRef.current) {
+      videoExportAbortRef.current.abort()
+      return
+    }
+
     clearFeedback()
     setIsWorking(true)
+    const abortController = new AbortController()
+    videoExportAbortRef.current = abortController
 
     try {
       const startTime = useTimelineStore.getState().currentTime
       const exportSize = getVideoExportDisplaySize(videoFormat, videoSize)
       const blob = await exportVideo(buildRenderProjectState(), {
+        abortSignal: abortController.signal,
         aspectPreset: videoAspect,
         duration: Math.max(0.25, videoDuration),
         format: videoFormat,
@@ -475,10 +484,16 @@ export function EditorExportDialog({
         `${videoFormat.toUpperCase()} exported at ${exportSize.width}×${exportSize.height}.`
       )
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Video export failed."
-      )
+      if (error instanceof DOMException && error.name === "AbortError") {
+        setVideoProgress(null)
+        setStatusMessage("Video export cancelled.")
+      } else {
+        setErrorMessage(
+          error instanceof Error ? error.message : "Video export failed."
+        )
+      }
     } finally {
+      videoExportAbortRef.current = null
       setIsWorking(false)
     }
   }
@@ -640,7 +655,7 @@ export function EditorExportDialog({
                     onClick={() => onOpenChange(false)}
                     variant="default"
                   >
-                    <X size={18} weight="bold" />
+                    <XIcon size={18} weight="bold" />
                   </IconButton>
                 </div>
 
@@ -693,7 +708,6 @@ export function EditorExportDialog({
                           imageQuality={imageQuality}
                           imageSize={imageSize}
                           isWorking={isWorking}
-                          maxExportDimension={maxExportDimension}
                           onExport={handleImageExport}
                           onImageAspectChange={setImageAspect}
                           onImageHeightChange={updateImageHeight}
@@ -704,7 +718,6 @@ export function EditorExportDialog({
                       {activeTab === "video" ? (
                         <VideoTabContent
                           isWorking={isWorking}
-                          maxExportDimension={maxExportDimension}
                           mp4Supported={videoSupport.mp4}
                           onExport={handleVideoExport}
                           onVideoAspectChange={setVideoAspect}
@@ -770,7 +783,6 @@ export function EditorExportDialog({
                             imageQuality={imageQuality}
                             imageSize={imageSize}
                             isWorking={isWorking}
-                            maxExportDimension={maxExportDimension}
                             onExport={handleImageExport}
                             onImageAspectChange={setImageAspect}
                             onImageHeightChange={updateImageHeight}
@@ -781,7 +793,6 @@ export function EditorExportDialog({
                         {activeTab === "video" ? (
                           <VideoTabContent
                             isWorking={isWorking}
-                            maxExportDimension={maxExportDimension}
                             mp4Supported={videoSupport.mp4}
                             onExport={handleVideoExport}
                             onVideoAspectChange={setVideoAspect}
@@ -863,7 +874,6 @@ function ImageTabContent({
   imageQuality,
   imageSize,
   isWorking,
-  maxExportDimension,
   onExport,
   onImageAspectChange,
   onImageHeightChange,
@@ -874,7 +884,6 @@ function ImageTabContent({
   imageQuality: ExportQualityPreset
   imageSize: { height: number; width: number }
   isWorking: boolean
-  maxExportDimension: number
   onExport: () => Promise<void>
   onImageAspectChange: (preset: ExportAspectPreset) => void
   onImageHeightChange: (value: number) => void
@@ -917,8 +926,7 @@ function ImageTabContent({
       />
 
       <Typography className="leading-[14px]" tone="muted" variant="caption">
-        Uses the current playhead frame. Max export dimension on this device:{" "}
-        {maxExportDimension}px.
+        Uses the current playhead frame.
       </Typography>
 
       <Button disabled={isWorking} onClick={() => void onExport()}>
@@ -931,7 +939,6 @@ function ImageTabContent({
 
 function VideoTabContent({
   isWorking,
-  maxExportDimension,
   mp4Supported,
   onExport,
   onVideoAspectChange,
@@ -951,7 +958,6 @@ function VideoTabContent({
   webmSupported,
 }: {
   isWorking: boolean
-  maxExportDimension: number
   mp4Supported: boolean
   onExport: () => Promise<void>
   onVideoAspectChange: (preset: ExportAspectPreset) => void
@@ -1060,17 +1066,20 @@ function VideoTabContent({
           />
         </div>
         <Typography className="leading-[14px]" tone="muted" variant="caption">
-          {videoProgress?.label ??
-            `Max export dimension on this device: ${maxExportDimension}px.`}
+          {videoProgress?.label ?? "\u00A0"}
         </Typography>
       </div>
 
       <Button
-        disabled={isWorking || !selectedFormatSupported}
+        disabled={!(isWorking || selectedFormatSupported)}
         onClick={() => void onExport()}
       >
-        <FileArrowDownIcon size={16} weight="bold" />
-        Export {videoFormat.toUpperCase()}
+        {isWorking ? (
+          <XIcon size={16} weight="bold" />
+        ) : (
+          <FileArrowDownIcon size={16} weight="bold" />
+        )}
+        {isWorking ? "Cancel Export" : `Export ${videoFormat.toUpperCase()}`}
       </Button>
     </section>
   )
