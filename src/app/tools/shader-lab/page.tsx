@@ -44,7 +44,7 @@ export const metadata: Metadata = {
       {
         alt: APP_DEFAULT_TITLE,
         height: 630,
-        url: "/opengraph-image.png",
+        url: "/twitter-image.png",
         width: 1200,
       },
     ],

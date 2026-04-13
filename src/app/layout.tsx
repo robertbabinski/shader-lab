@@ -24,6 +24,9 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: APP_DEFAULT_TITLE,
   },
+  alternates: {
+    canonical: "/tools/shader-lab",
+  },
   applicationName: APP_NAME,
   authors: [{ name: "basement.studio", url: "https://basement.studio" }],
   description: APP_DESCRIPTION,
@@ -46,6 +49,7 @@ export const metadata: Metadata = {
       template: APP_TITLE_TEMPLATE,
     },
     type: "website",
+    url: `${APP_BASE_URL}/tools/shader-lab`,
   },
   other: {
     "fb:app_id": process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || "",
@@ -61,7 +65,7 @@ export const metadata: Metadata = {
       {
         alt: APP_DEFAULT_TITLE,
         height: 630,
-        url: "/opengraph-image.png",
+        url: "/twitter-image.png",
         width: 1200,
       },
     ],
