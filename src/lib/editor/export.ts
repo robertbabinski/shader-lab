@@ -450,7 +450,10 @@ async function renderFrameToCanvas(
     viewportSize: options.renderSize,
   })
   renderer.render(frame)
-  await renderer.prepareForExportFrame(timelineState.currentTime)
+  await renderer.prepareForExportFrame(
+    timelineState.currentTime,
+    timelineState.loop
+  )
   renderer.render(frame)
 
   await waitForRenderedFrame()

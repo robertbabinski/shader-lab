@@ -142,7 +142,7 @@ export class PassNode {
     return false
   }
 
-  async prepareForExportFrame(_time: number): Promise<void> {
+  async prepareForExportFrame(_time: number, _loop: boolean): Promise<void> {
     // Default pass has no export-specific media work.
   }
 

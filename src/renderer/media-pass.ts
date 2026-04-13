@@ -134,11 +134,15 @@ export class MediaPass extends PassNode {
     return this.videoTexture !== null
   }
 
-  override async prepareForExportFrame(time: number): Promise<void> {
+  override async prepareForExportFrame(
+    time: number,
+    loop: boolean
+  ): Promise<void> {
     if (!this.videoHandle) {
       return
     }
 
+    this.videoHandle.setLoop(loop)
     await this.videoHandle.prepareFrame(time)
   }
 
@@ -157,8 +161,8 @@ export class MediaPass extends PassNode {
     const centeredUv = uv().sub(0.5).mul(this.scaleUniform)
     const coverScaleX = max(aspectRatio, float(1))
     const coverScaleY = max(float(1).div(aspectRatio), float(1))
-    const containScaleX = float(1).div(coverScaleX)
-    const containScaleY = float(1).div(coverScaleY)
+    const containScaleX = clamp(aspectRatio, float(0), float(1))
+    const containScaleY = clamp(float(1).div(aspectRatio), float(0), float(1))
     const useContain = this.fitModeUniform
     const scaleX = mix(coverScaleX, containScaleX, useContain)
     const scaleY = mix(coverScaleY, containScaleY, useContain)

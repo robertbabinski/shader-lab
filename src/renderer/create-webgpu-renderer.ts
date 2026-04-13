@@ -72,8 +72,8 @@ export async function createWebGPURenderer(
       pipeline?.setPreviewFrozen(frozen)
     },
 
-    async prepareForExportFrame(time: number) {
-      await pipeline?.prepareForExportFrame(time)
+    async prepareForExportFrame(time: number, loop: boolean) {
+      await pipeline?.prepareForExportFrame(time, loop)
     },
 
     exportFrame(frame: RendererFrame, _renderSize: Size): HTMLCanvasElement {

@@ -271,7 +271,7 @@ export function EditorTopBar() {
               <MinusIcon size={18} weight="bold" />
             </IconButton>
             <button
-              className="inline-flex h-7 min-w-16 items-center justify-center rounded-[var(--ds-radius-icon)] border border-[var(--ds-border-divider)] bg-[var(--ds-color-surface-control)] px-[10px] transition-[background-color,border-color,color,transform] duration-160 ease-[var(--ease-out-cubic)] hover:bg-white/8 hover:border-[var(--ds-border-hover)] active:scale-[0.98] max-[899px]:min-w-14"
+              className="inline-flex h-7 min-w-16 cursor-pointer items-center justify-center rounded-[var(--ds-radius-icon)] border border-[var(--ds-border-divider)] bg-[var(--ds-color-surface-control)] px-[10px] transition-[background-color,border-color,color,transform] duration-160 ease-[var(--ease-out-cubic)] hover:bg-white/8 hover:border-[var(--ds-border-hover)] active:scale-[0.98] max-[899px]:min-w-14"
               onClick={resetView}
               type="button"
             >

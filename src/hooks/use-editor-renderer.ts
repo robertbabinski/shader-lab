@@ -111,7 +111,7 @@ export function useEditorRenderer() {
 
         resizeObserver.observe(viewportElement)
 
-        const renderFrame = (now: number) => {
+        const renderFrame = async (now: number) => {
           const layerState = useLayerStore.getState()
           const assetState = useAssetStore.getState()
           const editorState = useEditorStore.getState()
@@ -136,9 +136,9 @@ export function useEditorRenderer() {
             useMetricsStore.getState().setFps(1 / rawDelta)
           }
 
-          const clockTime = timelineState.isPlaying ? timelineState.currentTime : previewTime
+          const clockTime = previewTime
           useTimelineStore.getState().setLastRenderedClockTime(clockTime)
-          renderer.setPreviewFrozen(frozen)
+          renderer.setPreviewFrozen(true)
 
           const frame = buildRendererFrame({
             assets: assetState.assets,
@@ -152,11 +152,24 @@ export function useEditorRenderer() {
             viewportSize: editorState.canvasSize,
           })
 
+          await renderer.prepareForExportFrame(
+            timelineState.currentTime,
+            timelineState.loop
+          )
+
+          if (isDisposed) {
+            return
+          }
+
           renderer.render(frame)
-          animationFrameRef.current = window.requestAnimationFrame(renderFrame)
+          animationFrameRef.current = window.requestAnimationFrame((nextNow) => {
+            void renderFrame(nextNow)
+          })
         }
 
-        animationFrameRef.current = window.requestAnimationFrame(renderFrame)
+        animationFrameRef.current = window.requestAnimationFrame((nextNow) => {
+          void renderFrame(nextNow)
+        })
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Renderer initialization failed."

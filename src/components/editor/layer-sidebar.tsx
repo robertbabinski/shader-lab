@@ -201,7 +201,7 @@ const LayerListItem = memo(function LayerListItem({
         </button>
 
         <button
-          className="grid min-w-0 grid-cols-[28px_minmax(0,1fr)] items-center gap-[var(--ds-space-2)] bg-transparent p-0 text-left text-inherit"
+          className="grid min-w-0 cursor-pointer grid-cols-[28px_minmax(0,1fr)] items-center gap-[var(--ds-space-2)] bg-transparent p-0 text-left text-inherit"
           onClick={(event) => onSelectLayer(layer.id, event)}
           type="button"
         >

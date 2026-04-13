@@ -40,7 +40,7 @@ export interface EditorRenderer {
   hasPendingCompilations(): boolean
   hasPendingResources(): boolean
   initialize(): Promise<void>
-  prepareForExportFrame(time: number): Promise<void>
+  prepareForExportFrame(time: number, loop: boolean): Promise<void>
   render(frame: RendererFrame): void
   resize(size: Size, pixelRatio: number): void
   setPreviewFrozen(frozen: boolean): void

@@ -325,12 +325,14 @@ export class PipelineManager {
     return this.pendingMediaLoads.size > 0
   }
 
-  async prepareForExportFrame(time: number): Promise<void> {
+  async prepareForExportFrame(time: number, loop: boolean): Promise<void> {
     const activePasses = this.passes.filter(
       (pass) => pass.enabled && !this.compilingPasses.has(pass.layerId)
     )
 
-    await Promise.all(activePasses.map((pass) => pass.prepareForExportFrame(time)))
+    await Promise.all(
+      activePasses.map((pass) => pass.prepareForExportFrame(time, loop))
+    )
   }
 
   dispose(): void {

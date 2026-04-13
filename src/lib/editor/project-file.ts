@@ -112,7 +112,7 @@ export function applyLabProjectFile(
   useTimelineStore.getState().replaceState({
     currentTime: 0,
     duration: projectFile.timeline.duration,
-    isPlaying: false,
+    isPlaying: true,
     loop: projectFile.timeline.loop,
     selectedKeyframeId: null,
     selectedTrackId: null,

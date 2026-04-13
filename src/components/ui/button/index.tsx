@@ -3,7 +3,7 @@ import type { ButtonHTMLAttributes, ReactNode } from "react"
 import { cn } from "@/lib/cn"
 
 const buttonVariants = cva(
-  "inline-flex origin-center items-center justify-center gap-2 whitespace-nowrap rounded-[var(--ds-radius-control)] border border-transparent font-[var(--ds-font-sans)] text-[12px] font-medium leading-4 text-decoration-none transition-[background-color,border-color,color,opacity,transform] duration-160 ease-[var(--ease-out-cubic)] will-change-transform disabled:cursor-not-allowed disabled:opacity-100 aria-disabled:cursor-not-allowed aria-disabled:opacity-100 active:scale-[0.98] data-[state=active]:scale-[0.98]",
+  "inline-flex origin-center cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-[var(--ds-radius-control)] border border-transparent font-[var(--ds-font-sans)] text-[12px] font-medium leading-4 text-decoration-none transition-[background-color,border-color,color,opacity,transform] duration-160 ease-[var(--ease-out-cubic)] will-change-transform disabled:cursor-not-allowed disabled:opacity-100 aria-disabled:cursor-not-allowed aria-disabled:opacity-100 active:scale-[0.98] data-[state=active]:scale-[0.98]",
   {
   variants: {
     variant: {

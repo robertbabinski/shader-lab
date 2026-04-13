@@ -317,7 +317,7 @@ function EffectCard({
         />
       ) : null}
       <button
-        className="flex w-full origin-center flex-col rounded-[10px] border border-white/6 bg-[rgb(255_255_255_/_0.02)] text-left transition-[transform,border-color,background-color,box-shadow] duration-[200ms] ease-[cubic-bezier(0.32,0.72,0,1)] hover:border-white/14 hover:bg-[rgb(255_255_255_/_0.05)] hover:shadow-[0_10px_30px_rgb(0_0_0_/_0.18),inset_0_1px_0_rgb(255_255_255_/_0.04)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--ds-border-active)] focus-visible:outline-offset-2 active:scale-[0.97]"
+        className="flex w-full origin-center cursor-pointer flex-col rounded-[10px] border border-white/6 bg-[rgb(255_255_255_/_0.02)] text-left transition-[transform,border-color,background-color,box-shadow] duration-[200ms] ease-[cubic-bezier(0.32,0.72,0,1)] hover:border-white/14 hover:bg-[rgb(255_255_255_/_0.05)] hover:shadow-[0_10px_30px_rgb(0_0_0_/_0.18),inset_0_1px_0_rgb(255_255_255_/_0.04)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--ds-border-active)] focus-visible:outline-offset-2 active:scale-[0.97]"
         onClick={() => onSelect(item.value)}
         type="button"
       >
@@ -357,7 +357,7 @@ function SourceButton({
 
   return (
     <button
-      className="inline-flex h-7 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-white/8 bg-[rgb(255_255_255_/_0.03)] px-3 font-[var(--ds-font-mono)] text-[10px] text-[var(--ds-color-text-secondary)] leading-none transition-[transform,border-color,background-color,color] duration-[180ms] ease-[cubic-bezier(0.32,0.72,0,1)] hover:border-white/14 hover:bg-[rgb(255_255_255_/_0.07)] hover:text-[var(--ds-color-text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--ds-border-active)] focus-visible:outline-offset-2 active:scale-[0.97]"
+      className="inline-flex h-7 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-white/8 bg-[rgb(255_255_255_/_0.03)] px-3 font-[var(--ds-font-mono)] text-[10px] text-[var(--ds-color-text-secondary)] leading-none transition-[transform,border-color,background-color,color] duration-[180ms] ease-[cubic-bezier(0.32,0.72,0,1)] hover:border-white/14 hover:bg-[rgb(255_255_255_/_0.07)] hover:text-[var(--ds-color-text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--ds-border-active)] focus-visible:outline-offset-2 active:scale-[0.97]"
       onClick={() => onSelect(item.value)}
       type="button"
     >
@@ -375,6 +375,7 @@ export function LayerPicker({ className, onSelect }: LayerPickerProps) {
   const rootRef = useRef<HTMLDivElement | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
+  const previousFocusRef = useRef<HTMLElement | null>(null)
   const [panelPosition, setPanelPosition] = useState<{
     left: number
     top: number
@@ -425,6 +426,15 @@ export function LayerPicker({ className, onSelect }: LayerPickerProps) {
       return
     }
 
+    previousFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null
+
+    window.requestAnimationFrame(() => {
+      panelRef.current?.querySelector<HTMLElement>("button:not([disabled])")?.focus()
+    })
+
     const handlePointerDown = (event: MouseEvent) => {
       if (!(event.target instanceof Node)) {
         return
@@ -450,6 +460,7 @@ export function LayerPicker({ className, onSelect }: LayerPickerProps) {
     return () => {
       window.removeEventListener("mousedown", handlePointerDown)
       window.removeEventListener("keydown", handleKeyDown)
+      previousFocusRef.current?.focus()
     }
   }, [open])
 
@@ -483,7 +494,7 @@ export function LayerPicker({ className, onSelect }: LayerPickerProps) {
         aria-expanded={open}
         aria-label="Add layer"
         className={cn(
-          "inline-flex h-7 w-7 origin-center items-center justify-center rounded-[var(--ds-radius-icon)] border-0 bg-transparent text-[var(--ds-color-text-tertiary)] transition-[transform,background-color,color,box-shadow] duration-[200ms] ease-[cubic-bezier(0.32,0.72,0,1)] hover:shadow-[inset_0_0_0_1px_rgb(255_255_255_/_0.04)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--ds-border-active)] focus-visible:outline-offset-2 active:scale-[0.97]",
+          "inline-flex h-7 w-7 origin-center cursor-pointer items-center justify-center rounded-[var(--ds-radius-icon)] border-0 bg-transparent text-[var(--ds-color-text-tertiary)] transition-[transform,background-color,color,box-shadow] duration-[200ms] ease-[cubic-bezier(0.32,0.72,0,1)] hover:shadow-[inset_0_0_0_1px_rgb(255_255_255_/_0.04)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--ds-border-active)] focus-visible:outline-offset-2 active:scale-[0.97]",
           open && "bg-white/12 text-white/70"
         )}
         onClick={() => {
@@ -566,7 +577,7 @@ export function LayerPicker({ className, onSelect }: LayerPickerProps) {
                             return (
                               <button
                                 className={cn(
-                                  "relative inline-flex h-7 items-center justify-center overflow-hidden rounded-full border border-transparent px-2.5 py-1 font-[var(--ds-font-mono)] text-[10px] text-[var(--ds-color-text-secondary)] leading-none transition-[transform,color] duration-[180ms] ease-[cubic-bezier(0.32,0.72,0,1)] hover:text-[var(--ds-color-text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--ds-border-active)] focus-visible:outline-offset-2 active:scale-[0.97]",
+                                  "relative inline-flex h-7 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-transparent px-2.5 py-1 font-[var(--ds-font-mono)] text-[10px] text-[var(--ds-color-text-secondary)] leading-none transition-[transform,color] duration-[180ms] ease-[cubic-bezier(0.32,0.72,0,1)] hover:text-[var(--ds-color-text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--ds-border-active)] focus-visible:outline-offset-2 active:scale-[0.97]",
                                   active &&
                                     "text-[var(--ds-color-text-primary)]"
                                 )}

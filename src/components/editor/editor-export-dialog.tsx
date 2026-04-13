@@ -22,6 +22,7 @@ import { createPortal } from "react-dom"
 import { Button } from "@/components/ui/button"
 import { GlassPanel } from "@/components/ui/glass-panel"
 import { IconButton } from "@/components/ui/icon-button"
+import { NumberInput as EditableNumberInput } from "@/components/ui/number-input"
 import { Typography } from "@/components/ui/typography"
 import { cn } from "@/lib/cn"
 import { getEffectiveCompositionSize } from "@/lib/editor/composition"
@@ -49,6 +50,10 @@ import {
   validateShaderExportSupport,
 } from "@/lib/editor/shader-export"
 import { generateShaderExportSnippet } from "@/lib/editor/shader-export-snippet"
+import {
+  getEffectiveTimelineDuration,
+  getLongestVideoLayerDuration,
+} from "@/lib/editor/timeline-duration"
 import {
   useAssetStore,
   useEditorStore,
@@ -82,6 +87,14 @@ const VIDEO_FPS_PRESETS = [24, 30, 60] as const
 const DEFAULT_VIDEO_EXPORT_DURATION = 8
 const VIDEO_DURATION_STEP = 0.25
 const DEFAULT_MAX_EXPORT_DIMENSION = 8192
+const FOCUSABLE_SELECTOR = [
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "textarea:not([disabled])",
+  "select:not([disabled])",
+  "[href]",
+  '[tabindex]:not([tabindex="-1"])',
+].join(", ")
 
 function roundDurationForExport(value: number): number {
   if (!Number.isFinite(value) || value <= 0) {
@@ -163,35 +176,28 @@ export function EditorExportDialog({
   const videoExportAbortRef = useRef<AbortController | null>(null)
   const importInputRef = useRef<HTMLInputElement | null>(null)
   const measureRef = useRef<HTMLDivElement | null>(null)
+  const dialogRef = useRef<HTMLDivElement | null>(null)
+  const previousFocusRef = useRef<HTMLElement | null>(null)
 
   const shaderExportIssues = useMemo(
     () => validateShaderExportSupport(layers, assets),
     [assets, layers]
   )
-  const defaultVideoDuration = useMemo(() => {
-    const assetById = new Map(assets.map((asset) => [asset.id, asset]))
-    const longestVideoDuration = layers.reduce((longest, layer) => {
-      if (
-        !(layer.kind === "source" && layer.type === "video" && layer.assetId)
-      ) {
-        return longest
-      }
-
-      const duration = assetById.get(layer.assetId)?.duration
-
-      return typeof duration === "number" &&
-        Number.isFinite(duration) &&
-        duration > 0
-        ? Math.max(longest, duration)
-        : longest
-    }, 0)
-
-    return roundDurationForExport(
-      longestVideoDuration > 0
-        ? longestVideoDuration
-        : DEFAULT_VIDEO_EXPORT_DURATION
-    )
-  }, [assets, layers])
+  const derivedVideoDuration = useMemo(
+    () => getLongestVideoLayerDuration(layers, assets),
+    [assets, layers]
+  )
+  const defaultVideoDuration = useMemo(
+    () =>
+      roundDurationForExport(
+        getEffectiveTimelineDuration(
+          layers,
+          assets,
+          timelineDuration || DEFAULT_VIDEO_EXPORT_DURATION
+        )
+      ),
+    [assets, layers, timelineDuration]
+  )
   const shaderSnippet = useMemo(() => {
     if (shaderExportIssues.length > 0) {
       return null
@@ -318,6 +324,10 @@ export function EditorExportDialog({
       return
     }
 
+    previousFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null
     setVideoDuration(defaultVideoDuration)
     setVideoDurationDirty(false)
     setVideoProgress(null)
@@ -325,13 +335,59 @@ export function EditorExportDialog({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         onOpenChange(false)
+        return
+      }
+
+      if (event.key !== "Tab") {
+        return
+      }
+
+      const focusableElements = Array.from(
+        dialogRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR) ??
+          []
+      )
+
+      if (focusableElements.length === 0) {
+        event.preventDefault()
+        return
+      }
+
+      const firstFocusable = focusableElements[0]
+      const lastFocusable = focusableElements[focusableElements.length - 1]
+      const activeElement =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null
+
+      if (!activeElement || !dialogRef.current?.contains(activeElement)) {
+        event.preventDefault()
+        ;(event.shiftKey ? lastFocusable : firstFocusable)?.focus()
+        return
+      }
+
+      if (event.shiftKey && activeElement === firstFocusable) {
+        event.preventDefault()
+        lastFocusable?.focus()
+        return
+      }
+
+      if (!event.shiftKey && activeElement === lastFocusable) {
+        event.preventDefault()
+        firstFocusable?.focus()
       }
     }
+
+    window.requestAnimationFrame(() => {
+      dialogRef.current
+        ?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)
+        ?.focus()
+    })
 
     window.addEventListener("keydown", handleKeyDown)
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown)
+      previousFocusRef.current?.focus()
     }
   }, [defaultVideoDuration, onOpenChange, open])
 
@@ -460,7 +516,7 @@ export function EditorExportDialog({
     videoExportAbortRef.current = abortController
 
     try {
-      const startTime = useTimelineStore.getState().currentTime
+      const startTime = 0
       const exportSize = getVideoExportDisplaySize(videoFormat, videoSize)
       const blob = await exportVideo(buildRenderProjectState(), {
         abortSignal: abortController.signal,
@@ -610,6 +666,7 @@ export function EditorExportDialog({
             exit={{ opacity: 0 }}
             initial={{ opacity: 0 }}
             onClick={() => onOpenChange(false)}
+            tabIndex={-1}
             transition={{
               duration: reduceMotion ? 0.12 : 0.18,
               ease: "easeOut",
@@ -633,6 +690,7 @@ export function EditorExportDialog({
                   ? { opacity: 0 }
                   : { opacity: 0, scale: 0.985, y: 10 }
               }
+              ref={dialogRef}
               transition={
                 reduceMotion
                   ? { duration: 0.12, ease: "easeOut" }
@@ -664,7 +722,7 @@ export function EditorExportDialog({
                     (tab) => (
                       <button
                         className={cn(
-                          "inline-flex min-h-7 items-center justify-center rounded-[var(--ds-radius-control)] border border-transparent px-[10px] leading-none transition-[background-color,border-color,color] duration-160 ease-[var(--ease-out-cubic)] hover:bg-[var(--ds-color-surface-subtle)] hover:border-[var(--ds-border-subtle)]",
+                          "inline-flex min-h-7 cursor-pointer items-center justify-center rounded-[var(--ds-radius-control)] border border-transparent px-[10px] leading-none transition-[background-color,border-color,color] duration-160 ease-[var(--ease-out-cubic)] hover:bg-[var(--ds-color-surface-subtle)] hover:border-[var(--ds-border-subtle)]",
                           activeTab === tab &&
                             "bg-[var(--ds-color-surface-active)] border-[var(--ds-border-active)]"
                         )}
@@ -732,6 +790,7 @@ export function EditorExportDialog({
                           onVideoWidthChange={updateVideoWidth}
                           videoAspect={videoAspect}
                           videoDuration={videoDuration}
+                          videoDurationReadOnly={derivedVideoDuration !== null}
                           videoFormat={videoFormat}
                           videoFps={videoFps}
                           videoProgress={videoProgress}
@@ -807,6 +866,7 @@ export function EditorExportDialog({
                             onVideoWidthChange={updateVideoWidth}
                             videoAspect={videoAspect}
                             videoDuration={videoDuration}
+                            videoDurationReadOnly={derivedVideoDuration !== null}
                             videoFormat={videoFormat}
                             videoFps={videoFps}
                             videoProgress={videoProgress}
@@ -950,6 +1010,7 @@ function VideoTabContent({
   onVideoWidthChange,
   videoAspect,
   videoDuration,
+  videoDurationReadOnly,
   videoFormat,
   videoFps,
   videoProgress,
@@ -969,6 +1030,7 @@ function VideoTabContent({
   onVideoWidthChange: (value: number) => void
   videoAspect: ExportAspectPreset
   videoDuration: number
+  videoDurationReadOnly: boolean
   videoFormat: VideoExportFormat
   videoFps: number
   videoProgress: { label: string; value: number } | null
@@ -1048,6 +1110,10 @@ function VideoTabContent({
 
         <FieldLabel label="Duration">
           <NumberInput
+            disabled={videoDurationReadOnly}
+            formatValue={(value) =>
+              videoDurationReadOnly ? value.toFixed(2) : value.toString()
+            }
             min={0.25}
             onChange={onVideoDurationChange}
             step={0.25}
@@ -1248,7 +1314,7 @@ function PillButton({
   return (
     <button
       className={cn(
-        "inline-flex min-h-7 items-center justify-center rounded-[var(--ds-radius-control)] border border-[var(--ds-border-divider)] bg-[var(--ds-color-surface-control)] px-[10px] leading-none transition-[background-color,border-color,color] duration-160 ease-[var(--ease-out-cubic)] hover:not-disabled:bg-white/8 hover:not-disabled:border-[var(--ds-border-hover)] disabled:cursor-not-allowed disabled:opacity-42",
+        "inline-flex min-h-7 cursor-pointer items-center justify-center rounded-[var(--ds-radius-control)] border border-[var(--ds-border-divider)] bg-[var(--ds-color-surface-control)] px-[10px] leading-none transition-[background-color,border-color,color] duration-160 ease-[var(--ease-out-cubic)] hover:not-disabled:bg-white/8 hover:not-disabled:border-[var(--ds-border-hover)] disabled:cursor-not-allowed disabled:opacity-42",
         active &&
           "bg-[var(--ds-color-surface-active)] border-[var(--ds-border-active)]"
       )}
@@ -1296,49 +1362,55 @@ function DimensionFields({
 }
 
 function NumberInput({
+  disabled = false,
+  formatValue,
   min,
   onChange,
   step,
   value,
 }: {
+  disabled?: boolean
+  formatValue?: ((value: number) => string) | undefined
   min: number
   onChange: (value: number) => void
   step: number
   value: number
 }) {
   return (
-    <input
+    <EditableNumberInput
       className="min-h-9 rounded-[var(--ds-radius-control)] border border-[var(--ds-border-divider)] bg-[var(--ds-color-surface-control)] px-[10px] py-2 font-[var(--ds-font-mono)] text-[12px] leading-4 text-[var(--ds-color-text-primary)]"
+      disabled={disabled}
+      formatValue={formatValue}
       min={min}
-      onChange={(event) => {
-        const nextValue = Number.parseFloat(event.currentTarget.value)
-
-        if (Number.isFinite(nextValue)) {
-          onChange(nextValue)
-        }
-      }}
+      onChange={onChange}
       step={step}
-      type="number"
       value={value}
     />
   )
 }
 
 function buildRenderProjectState() {
+  const assets = useAssetStore.getState().assets
+  const layers = useLayerStore.getState().layers
   const timelineState = useTimelineStore.getState()
   const editorState = useEditorStore.getState()
+  const effectiveDuration = getEffectiveTimelineDuration(
+    layers,
+    assets,
+    timelineState.duration
+  )
 
   return {
-    assets: useAssetStore.getState().assets,
+    assets,
     compositionSize: getEffectiveCompositionSize(
       editorState.sceneConfig,
       editorState.canvasSize
     ),
-    layers: useLayerStore.getState().layers,
+    layers,
     sceneConfig: editorState.sceneConfig,
     timeline: {
       currentTime: timelineState.currentTime,
-      duration: timelineState.duration,
+      duration: effectiveDuration,
       isPlaying: timelineState.isPlaying,
       loop: timelineState.loop,
       selectedKeyframeId: timelineState.selectedKeyframeId,

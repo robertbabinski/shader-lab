@@ -8,7 +8,6 @@ import {
   CircleIcon,
   PauseIcon,
   PlayIcon,
-  SnowflakeIcon,
   StopIcon,
 } from "@phosphor-icons/react"
 import { motion, useReducedMotion } from "motion/react"
@@ -23,9 +22,12 @@ import {
 } from "react"
 import { GlassPanel } from "@/components/ui/glass-panel"
 import { IconButton } from "@/components/ui/icon-button"
+import { NumberInput } from "@/components/ui/number-input"
 import { Typography } from "@/components/ui/typography"
 import { cn } from "@/lib/cn"
 import { getLayerDefinition } from "@/lib/editor/config/layer-registry"
+import { getLongestVideoLayerDuration } from "@/lib/editor/timeline-duration"
+import { useAssetStore } from "@/store/asset-store"
 import { useEditorStore, useLayerStore, useTimelineStore } from "@/store"
 import {
   createLayerPropertyBinding,
@@ -251,30 +253,28 @@ function TimelineTransport({
   autoKey,
   currentTime,
   duration,
+  durationReadOnly,
   expanded,
-  frozen,
   isPlaying,
   loop,
   onDurationChange,
   onStop,
   onToggleAutoKey,
   onToggleExpanded,
-  onToggleFrozen,
   onToggleLoop,
   onTogglePlaying,
 }: {
   autoKey: boolean
   currentTime: number
   duration: number
+  durationReadOnly: boolean
   expanded: boolean
-  frozen: boolean
   isPlaying: boolean
   loop: boolean
   onDurationChange: (value: number) => void
   onStop: () => void
   onToggleAutoKey: () => void
   onToggleExpanded: () => void
-  onToggleFrozen: () => void
   onToggleLoop: () => void
   onTogglePlaying: () => void
 }) {
@@ -305,17 +305,6 @@ function TimelineTransport({
           variant="default"
         >
           <StopIcon size={14} weight="fill" />
-        </IconButton>
-        <IconButton
-          aria-label={frozen ? "Unfreeze frame" : "Freeze frame"}
-          className={cn(
-            "h-7 w-7",
-            frozen && "bg-white/12 text-[var(--ds-color-text-primary)]"
-          )}
-          onClick={onToggleFrozen}
-          variant={frozen ? "active" : "default"}
-        >
-          <SnowflakeIcon size={14} weight={frozen ? "fill" : "regular"} />
         </IconButton>
       </div>
 
@@ -363,21 +352,28 @@ function TimelineTransport({
         <Typography as="span" tone="secondary" variant="monoSm">
           Dur
         </Typography>
-        <input
+        <NumberInput
           aria-label="Timeline duration in seconds"
-          className="min-h-7 w-[72px] appearance-none rounded-[var(--ds-radius-icon)] border border-[var(--ds-border-divider)] bg-[var(--ds-color-surface-control)] px-[10px] text-center font-[var(--ds-font-mono)] text-[12px] leading-4 text-[var(--ds-color-text-primary)] outline-none transition-[background-color,border-color] duration-160 ease-[var(--ease-out-cubic)] focus:border-[var(--ds-border-hover)]"
+          size={2}
+          className={cn(
+            "min-h-7 appearance-none rounded-[var(--ds-radius-icon)] border border-[var(--ds-border-divider)] bg-[var(--ds-color-surface-control)] px-[10px] text-center font-[var(--ds-font-mono)] text-[12px] leading-4 text-[var(--ds-color-text-primary)] outline-none transition-[background-color,border-color] duration-160 ease-[var(--ease-out-cubic)] focus:border-[var(--ds-border-hover)]",
+            durationReadOnly && "cursor-not-allowed text-white/55 opacity-60"
+          )}
+          disabled={durationReadOnly}
+          formatValue={(value) =>
+            durationReadOnly ? value.toFixed(2) : Math.trunc(value).toString()
+          }
           max={120}
-          min={0.25}
-          onChange={(event) => {
-            const nextValue = event.currentTarget.valueAsNumber
-
-            if (Number.isFinite(nextValue)) {
-              onDurationChange(nextValue)
-            }
+          min={1}
+          onChange={onDurationChange}
+          parseValue={(value) => {
+            const nextValue = Number.parseFloat(
+              value.trim().replaceAll(",", ".")
+            )
+            return Number.isFinite(nextValue) ? Math.trunc(nextValue) : null
           }}
-          step={0.25}
-          type="number"
-          value={duration.toFixed(2)}
+          step={1}
+          value={duration}
         />
         <Typography
           as="span"
@@ -429,11 +425,15 @@ export function EditorTimelineOverlay() {
   const toggleTimelinePanel = useEditorStore(
     (state) => state.toggleTimelinePanel
   )
+  const assets = useAssetStore((state) => state.assets)
+  const layers = useLayerStore((state) => state.layers)
   const selectedLayerId = useLayerStore((state) => state.selectedLayerId)
-  const selectedLayer = useLayerStore((state) =>
+  const selectedLayer = useMemo(
+    () =>
     selectedLayerId
-      ? (state.layers.find((layer) => layer.id === selectedLayerId) ?? null)
-      : null
+      ? (layers.find((layer) => layer.id === selectedLayerId) ?? null)
+      : null,
+    [layers, selectedLayerId]
   )
 
   const currentTime = useTimelineStore((state) => state.currentTime)
@@ -448,16 +448,21 @@ export function EditorTimelineOverlay() {
   const setCurrentTime = useTimelineStore((state) => state.setCurrentTime)
   const setDuration = useTimelineStore((state) => state.setDuration)
   const setLoop = useTimelineStore((state) => state.setLoop)
+  const setPlaying = useTimelineStore((state) => state.setPlaying)
   const setSelected = useTimelineStore((state) => state.setSelected)
   const setTrackInterpolation = useTimelineStore(
     (state) => state.setTrackInterpolation
   )
   const setKeyframeTime = useTimelineStore((state) => state.setKeyframeTime)
   const removeKeyframe = useTimelineStore((state) => state.removeKeyframe)
-  const frozen = useTimelineStore((state) => state.frozen)
-  const setFrozen = useTimelineStore((state) => state.setFrozen)
   const stop = useTimelineStore((state) => state.stop)
   const togglePlaying = useTimelineStore((state) => state.togglePlaying)
+  const derivedVideoDuration = useMemo(
+    () => getLongestVideoLayerDuration(layers, assets),
+    [assets, layers]
+  )
+  const hasDerivedVideoDuration = derivedVideoDuration !== null
+  const effectiveDuration = derivedVideoDuration ?? duration
 
   const layerTracks = useMemo(
     () =>
@@ -477,10 +482,37 @@ export function EditorTimelineOverlay() {
   const [focusedPropertyId, setFocusedPropertyId] = useState<string | null>(
     null
   )
+  const previousHasDerivedVideoDurationRef = useRef<boolean | null>(null)
   const scrubSurfaceRef = useRef<HTMLDivElement | null>(null)
   const [dragState, setDragState] = useState<DragState | null>(null)
   const [viewportSize, setViewportSize] = useState({ height: 900, width: 1440 })
-  const tickPositions = useMemo(() => createTickPositions(duration), [duration])
+  const tickPositions = useMemo(
+    () => createTickPositions(effectiveDuration),
+    [effectiveDuration]
+  )
+
+  useEffect(() => {
+    if (!(hasDerivedVideoDuration && derivedVideoDuration !== duration)) {
+      return
+    }
+
+    setDuration(derivedVideoDuration)
+  }, [derivedVideoDuration, duration, hasDerivedVideoDuration, setDuration])
+
+  useEffect(() => {
+    const previousHasDerivedVideoDuration =
+      previousHasDerivedVideoDurationRef.current
+
+    if (
+      hasDerivedVideoDuration &&
+      previousHasDerivedVideoDuration !== true &&
+      !isPlaying
+    ) {
+      setPlaying(true)
+    }
+
+    previousHasDerivedVideoDurationRef.current = hasDerivedVideoDuration
+  }, [hasDerivedVideoDuration, isPlaying, setPlaying])
 
   useEffect(() => {
     if (!(timelinePanelOpen && selectedLayer)) {
@@ -586,7 +618,7 @@ export function EditorTimelineOverlay() {
     const rect = surface.getBoundingClientRect()
     const progress =
       rect.width > 0 ? clamp((clientX - rect.left) / rect.width, 0, 1) : 0
-    return progress * duration
+    return progress * effectiveDuration
   })
 
   const handleDragMove = useEffectEvent((event: PointerEvent) => {
@@ -624,13 +656,27 @@ export function EditorTimelineOverlay() {
     }
   }, [dragState])
 
+  useEffect(() => {
+    if (dragState?.type !== "playhead") {
+      return
+    }
+
+    const previousCursor = document.body.style.cursor
+    document.body.style.cursor = "grabbing"
+
+    return () => {
+      document.body.style.cursor = previousCursor
+    }
+  }, [dragState])
+
   if (immersiveCanvas) {
     return null
   }
 
   const selectedTrack =
     layerTracks.find((track) => track.id === selectedTrackId) ?? null
-  const progress = duration > 0 ? clamp(currentTime / duration, 0, 1) : 0
+  const progress =
+    effectiveDuration > 0 ? clamp(currentTime / effectiveDuration, 0, 1) : 0
   const shellWidth = timelinePanelOpen
     ? Math.min(EXPANDED_SHELL_WIDTH, Math.max(640, viewportSize.width - 96))
     : Math.min(COLLAPSED_SHELL_WIDTH, Math.max(360, viewportSize.width - 48))
@@ -695,16 +741,15 @@ export function EditorTimelineOverlay() {
             <TimelineTransport
               autoKey={timelineAutoKey}
               currentTime={currentTime}
-              duration={duration}
+              duration={effectiveDuration}
+              durationReadOnly={hasDerivedVideoDuration}
               expanded={timelinePanelOpen}
-              frozen={frozen}
               isPlaying={isPlaying}
               loop={loop}
               onDurationChange={setDuration}
               onStop={stop}
               onToggleAutoKey={toggleTimelineAutoKey}
               onToggleExpanded={toggleTimelinePanel}
-              onToggleFrozen={() => setFrozen(!frozen)}
               onToggleLoop={() => setLoop(!loop)}
               onTogglePlaying={togglePlaying}
             />
@@ -752,7 +797,7 @@ export function EditorTimelineOverlay() {
                         return (
                           <button
                             className={cn(
-                              "flex min-h-8 items-center gap-[10px] rounded-[10px] border border-transparent px-[10px] text-left transition-[background-color,border-color,color,transform] duration-160 ease-[var(--ease-out-cubic)] hover:bg-white/4 hover:border-white/5 active:scale-[0.995]",
+                              "flex min-h-8 cursor-pointer items-center gap-[10px] rounded-[10px] border border-transparent px-[10px] text-left transition-[background-color,border-color,color,transform] duration-160 ease-[var(--ease-out-cubic)] hover:bg-white/4 hover:border-white/5 active:scale-[0.995]",
                               isFocused && "border-white/8 bg-white/8",
                               hasTrack
                                 ? "text-[var(--ds-color-text-primary)]"
@@ -939,12 +984,16 @@ export function EditorTimelineOverlay() {
                     )}
 
                     <div
-                      className="pointer-events-none absolute top-0 bottom-0 w-0 -translate-x-1/2"
+                      className={cn(
+                        "pointer-events-none absolute top-0 bottom-0 w-0 -translate-x-1/2",
+                        dragState?.type === "playhead" &&
+                          "[&_div[aria-hidden='true']]:cursor-grabbing"
+                      )}
                       style={{ left: `${progress * 100}%` }}
                     >
                       <div
                         aria-hidden="true"
-                        className="pointer-events-auto absolute top-0 left-1/2 h-[14px] w-[14px] -translate-x-1/2 rounded-[4px] bg-white/96 shadow-[0_8px_18px_rgb(0_0_0_/_0.28)]"
+                        className="pointer-events-auto absolute top-0 left-1/2 h-[14px] w-[14px] -translate-x-1/2 cursor-grab rounded-[4px] bg-white/96 shadow-[0_8px_18px_rgb(0_0_0_/_0.28)] active:cursor-grabbing"
                         onPointerDown={(event) => {
                           event.preventDefault()
                           event.stopPropagation()
@@ -953,7 +1002,12 @@ export function EditorTimelineOverlay() {
                       />
                       <div
                         aria-hidden="true"
-                        className="absolute top-3 bottom-0 left-1/2 w-px -translate-x-1/2 bg-[linear-gradient(180deg,rgb(255_255_255_/_0.95)_0%,rgb(255_255_255_/_0.62)_100%)]"
+                        className="pointer-events-auto absolute top-3 bottom-0 left-1/2 w-px -translate-x-1/2 cursor-grab bg-[linear-gradient(180deg,rgb(255_255_255_/_0.95)_0%,rgb(255_255_255_/_0.62)_100%)] active:cursor-grabbing"
+                        onPointerDown={(event) => {
+                          event.preventDefault()
+                          event.stopPropagation()
+                          setDragState({ type: "playhead" })
+                        }}
                       />
                     </div>
                   </div>
@@ -981,7 +1035,7 @@ export function EditorTimelineOverlay() {
                     >
                       <BaseSelect.Trigger
                         aria-label="Track easing"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-[var(--ds-radius-icon)] border border-[var(--ds-border-divider)] bg-[var(--ds-color-surface-control)] text-[var(--ds-color-text-secondary)] transition-[background-color,border-color,color,transform] duration-160 ease-[var(--ease-out-cubic)] hover:bg-white/8 hover:border-[var(--ds-border-hover)] active:scale-[0.96] data-[popup-open]:bg-white/8 data-[popup-open]:border-[var(--ds-border-hover)] data-[popup-open]:text-[var(--ds-color-text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-[var(--ds-border-active)]"
+                        className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-[var(--ds-radius-icon)] border border-[var(--ds-border-divider)] bg-[var(--ds-color-surface-control)] text-[var(--ds-color-text-secondary)] transition-[background-color,border-color,color,transform] duration-160 ease-[var(--ease-out-cubic)] hover:bg-white/8 hover:border-[var(--ds-border-hover)] active:scale-[0.96] data-[popup-open]:bg-white/8 data-[popup-open]:border-[var(--ds-border-hover)] data-[popup-open]:text-[var(--ds-color-text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-[var(--ds-border-active)]"
                         onPointerDown={(event) => {
                           event.stopPropagation()
                         }}

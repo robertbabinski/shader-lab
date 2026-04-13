@@ -185,7 +185,7 @@ export const useTimelineStore = create<TimelineStore>((set, get) => ({
   currentTime: 0,
   duration: DEFAULT_PROJECT_TIMELINE.duration,
   frozen: false,
-  isPlaying: false,
+  isPlaying: true,
   lastRenderedClockTime: 0,
   loop: DEFAULT_PROJECT_TIMELINE.loop,
   selectedKeyframeId: null,

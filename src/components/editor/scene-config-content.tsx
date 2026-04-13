@@ -4,6 +4,7 @@ import { useCallback, useMemo } from "react"
 import { ChannelCurves } from "@/components/ui/channel-curves"
 import { ColorPicker } from "@/components/ui/color-picker"
 import { GradientRamp, type GradientStop } from "@/components/ui/gradient-ramp"
+import { NumberInput } from "@/components/ui/number-input"
 import { Select } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
 import { Toggle } from "@/components/ui/toggle"
@@ -177,29 +178,33 @@ export function SceneConfigContent() {
           </Row>
           {sceneConfig.compositionAspect === "custom" && (
             <div className="flex items-center justify-end gap-1.5">
-              <input
+              <NumberInput
                 className={inputClassName}
                 min={1}
-                onChange={(e) => {
-                  const v = Number.parseInt(e.currentTarget.value, 10)
-                  if (Number.isFinite(v) && v > 0)
-                    handleUpdate("compositionWidth", v)
+                onChange={(value) =>
+                  handleUpdate("compositionWidth", Math.round(value))
+                }
+                parseValue={(value) => {
+                  const nextValue = Number.parseInt(value, 10)
+                  return Number.isFinite(nextValue) ? nextValue : null
                 }}
-                type="number"
+                step={1}
                 value={sceneConfig.compositionWidth}
               />
               <Typography tone="muted" variant="monoXs">
                 :
               </Typography>
-              <input
+              <NumberInput
                 className={inputClassName}
                 min={1}
-                onChange={(e) => {
-                  const v = Number.parseInt(e.currentTarget.value, 10)
-                  if (Number.isFinite(v) && v > 0)
-                    handleUpdate("compositionHeight", v)
+                onChange={(value) =>
+                  handleUpdate("compositionHeight", Math.round(value))
+                }
+                parseValue={(value) => {
+                  const nextValue = Number.parseInt(value, 10)
+                  return Number.isFinite(nextValue) ? nextValue : null
                 }}
-                type="number"
+                step={1}
                 value={sceneConfig.compositionHeight}
               />
             </div>
