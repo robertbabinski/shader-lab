@@ -24,7 +24,6 @@ import { GlassPanel } from "@/components/ui/glass-panel"
 import { IconButton } from "@/components/ui/icon-button"
 import { NumberInput } from "@/components/ui/number-input"
 import { Typography } from "@/components/ui/typography"
-import { useIsMobileViewport } from "@/hooks/use-is-mobile-viewport"
 import { cn } from "@/lib/cn"
 import { getLayerDefinition } from "@/lib/editor/config/layer-registry"
 import { getLongestVideoLayerDuration } from "@/lib/editor/timeline-duration"
@@ -416,7 +415,6 @@ function TimelineTransport({
 
 export function EditorTimelineOverlay() {
   const reduceMotion = useReducedMotion() ?? false
-  const isMobileViewport = useIsMobileViewport()
   const immersiveCanvas = useEditorStore((state) => state.immersiveCanvas)
   const timelinePanelOpen = useEditorStore((state) => state.timelinePanelOpen)
   const timelineAutoKey = useEditorStore((state) => state.timelineAutoKey)
@@ -671,13 +669,7 @@ export function EditorTimelineOverlay() {
     }
   }, [dragState])
 
-  useEffect(() => {
-    if (isMobileViewport) {
-      closeTimelinePanel()
-    }
-  }, [closeTimelinePanel, isMobileViewport])
-
-  if (immersiveCanvas || isMobileViewport) {
+  if (immersiveCanvas) {
     return null
   }
 
@@ -716,7 +708,7 @@ export function EditorTimelineOverlay() {
   }
 
   return (
-    <div className="pointer-events-none fixed right-0 bottom-3 left-0 z-35 flex justify-center">
+    <div className="pointer-events-none fixed right-0 bottom-3 left-0 z-35 hidden justify-center max-[899px]:hidden min-[900px]:flex">
       <motion.div
         animate={
           reduceMotion

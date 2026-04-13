@@ -11,8 +11,6 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { GlassPanel } from "@/components/ui/glass-panel"
 import { IconButton } from "@/components/ui/icon-button"
 import { Typography } from "@/components/ui/typography"
-import { useIsMobileViewport } from "@/hooks/use-is-mobile-viewport"
-import { cn } from "@/lib/cn"
 import {
   applyEditorHistorySnapshot,
   buildEditorHistorySnapshot,
@@ -56,11 +54,10 @@ export function EditorTopBar() {
   > | null>(null)
   const latestSnapshotRef = useRef(buildEditorHistorySnapshot())
   const historyTimerRef = useRef<number | null>(null)
-  const isMobileViewport = useIsMobileViewport()
 
   const canUndo = historyPastLength > 0
   const canRedo = historyFutureLength > 0
-  const panelVisible = isMobileViewport ? mobilePanel === "actions" : true
+  const mobileActionsOpen = mobilePanel === "actions"
 
   const syncHistorySnapshotRefs = useCallback(() => {
     const snapshot = buildEditorHistorySnapshot()
@@ -234,33 +231,20 @@ export function EditorTopBar() {
     setPan(nextState.panOffset.x, nextState.panOffset.y)
   }
 
-  if (immersiveCanvas || !panelVisible) {
+  if (immersiveCanvas) {
     return null
   }
 
   return (
     <>
       <div
-        className={cn(
-          "pointer-events-none fixed right-0 left-0 z-45 flex justify-center",
-          isMobileViewport ? "bottom-[88px] px-3" : "top-4"
-        )}
+        className="pointer-events-none fixed top-4 right-0 left-0 z-45 hidden justify-center max-[899px]:hidden min-[900px]:flex"
       >
         <GlassPanel
-          className={cn(
-            "pointer-events-auto flex min-h-11 items-center gap-[var(--ds-space-4)] px-[10px] py-2",
-            isMobileViewport
-              ? "w-full max-w-[420px] flex-wrap justify-between gap-2 p-2.5"
-              : "w-auto justify-between"
-          )}
+          className="pointer-events-auto flex min-h-11 w-auto items-center justify-between gap-[var(--ds-space-4)] px-[10px] py-2"
           variant="panel"
         >
-          <div
-            className={cn(
-              "inline-flex items-center gap-1.5",
-              isMobileViewport && "w-full justify-between"
-            )}
-          >
+          <div className="inline-flex items-center gap-1.5">
             <IconButton
               aria-label="Undo"
               className="h-7 w-7 disabled:opacity-45"
@@ -281,12 +265,7 @@ export function EditorTopBar() {
             </IconButton>
           </div>
 
-          <div
-            className={cn(
-              "inline-flex items-center gap-1.5",
-              isMobileViewport && "w-full justify-between"
-            )}
-          >
+          <div className="inline-flex items-center gap-1.5">
             <IconButton
               aria-label="Zoom out"
               className="h-7 w-7 disabled:opacity-45"
@@ -314,10 +293,7 @@ export function EditorTopBar() {
             </IconButton>
             <span
               aria-hidden="true"
-              className={cn(
-                "block h-5 w-px rounded-full bg-[var(--ds-border-divider)]",
-                isMobileViewport && "mx-1"
-              )}
+              className="block h-5 w-px rounded-full bg-[var(--ds-border-divider)]"
             />
             <IconButton
               aria-label="Export"
@@ -330,6 +306,76 @@ export function EditorTopBar() {
           </div>
         </GlassPanel>
       </div>
+
+      {mobileActionsOpen ? (
+        <div className="pointer-events-none fixed right-0 bottom-[88px] left-0 z-45 flex justify-center px-3 min-[900px]:hidden">
+          <GlassPanel
+            className="pointer-events-auto flex min-h-11 w-full max-w-[420px] flex-wrap items-center justify-between gap-2 p-2.5"
+            variant="panel"
+          >
+            <div className="inline-flex w-full items-center justify-between gap-1.5">
+              <IconButton
+                aria-label="Undo"
+                className="h-7 w-7 disabled:opacity-45"
+                disabled={!canUndo}
+                onClick={handleUndo}
+                variant="default"
+              >
+                <ArrowCounterClockwiseIcon size={18} weight="bold" />
+              </IconButton>
+              <IconButton
+                aria-label="Redo"
+                className="h-7 w-7 disabled:opacity-45"
+                disabled={!canRedo}
+                onClick={handleRedo}
+                variant="default"
+              >
+                <ArrowClockwiseIcon size={18} weight="bold" />
+              </IconButton>
+            </div>
+
+            <div className="inline-flex w-full items-center justify-between gap-1.5">
+              <IconButton
+                aria-label="Zoom out"
+                className="h-7 w-7 disabled:opacity-45"
+                onClick={() => applyZoomStep("out")}
+                variant="default"
+              >
+                <MinusIcon size={18} weight="bold" />
+              </IconButton>
+              <button
+                className="inline-flex h-7 min-w-16 cursor-pointer items-center justify-center rounded-[var(--ds-radius-icon)] border border-[var(--ds-border-divider)] bg-[var(--ds-color-surface-control)] px-[10px] transition-[background-color,border-color,color,transform] duration-160 ease-[var(--ease-out-cubic)] hover:bg-white/8 hover:border-[var(--ds-border-hover)] active:scale-[0.98]"
+                onClick={resetView}
+                type="button"
+              >
+                <Typography as="span" tone="secondary" variant="monoSm">
+                  {Math.round(zoom * 100)}%
+                </Typography>
+              </button>
+              <IconButton
+                aria-label="Zoom in"
+                className="h-7 w-7 disabled:opacity-45"
+                onClick={() => applyZoomStep("in")}
+                variant="default"
+              >
+                <PlusIcon size={18} weight="bold" />
+              </IconButton>
+              <span
+                aria-hidden="true"
+                className="mx-1 block h-5 w-px rounded-full bg-[var(--ds-border-divider)]"
+              />
+              <IconButton
+                aria-label="Export"
+                className="h-7 w-7 disabled:opacity-45"
+                onClick={() => setIsExportDialogOpen(true)}
+                variant="default"
+              >
+                <DownloadSimpleIcon size={16} weight="bold" />
+              </IconButton>
+            </div>
+          </GlassPanel>
+        </div>
+      ) : null}
 
       <EditorExportDialog
         onOpenChange={setIsExportDialogOpen}

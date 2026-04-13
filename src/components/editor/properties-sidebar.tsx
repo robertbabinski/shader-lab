@@ -5,7 +5,6 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { GlassPanel } from "@/components/ui/glass-panel"
 import { IconButton } from "@/components/ui/icon-button"
-import { useIsMobileViewport } from "@/hooks/use-is-mobile-viewport"
 import { cn } from "@/lib/cn"
 import { getLayerDefinition } from "@/lib/editor/config/layer-registry"
 import { evaluateTimelineForLayers } from "@/lib/editor/timeline/evaluate"
@@ -76,10 +75,8 @@ export function PropertiesSidebar() {
   const assets = useAssetStore((state) => state.assets)
   const activeGestureDepthRef = useRef(0)
   const activeGestureTimeRef = useRef<number | null>(null)
-  const isMobileViewport = useIsMobileViewport()
-  const panelVisible = isMobileViewport
-    ? mobilePanel === "properties" || mobilePanel === "scene"
-    : rightSidebarVisible
+  const mobilePanelVisible =
+    mobilePanel === "properties" || mobilePanel === "scene"
 
   const resetLivePreviewOverrides = useCallback(() => {
     setLivePreviewOverrides((current) => {
@@ -259,10 +256,6 @@ export function PropertiesSidebar() {
   }, [selectedLayerId, setSidebarView])
 
   useEffect(() => {
-    if (!isMobileViewport) {
-      return
-    }
-
     if (mobilePanel === "scene") {
       setSidebarView("scene")
       return
@@ -271,7 +264,7 @@ export function PropertiesSidebar() {
     if (mobilePanel === "properties") {
       setSidebarView("properties")
     }
-  }, [isMobileViewport, mobilePanel, setSidebarView])
+  }, [mobilePanel, setSidebarView])
 
   useEffect(() => {
     return () => {
@@ -555,13 +548,10 @@ export function PropertiesSidebar() {
     <aside
       className={cn(
         "pointer-events-none transition-[opacity,translate] duration-[220ms,260ms] ease-[ease-out,cubic-bezier(0.22,1,0.36,1)]",
-        isMobileViewport
-          ? "fixed right-3 bottom-[88px] left-3 z-45 translate-y-0"
-          : "absolute top-[76px] right-4 z-20 w-[300px] translate-x-0",
-        !panelVisible &&
-          (isMobileViewport
-            ? "translate-y-3 opacity-0"
-            : "translate-x-[18px] opacity-0")
+        "max-[899px]:fixed max-[899px]:right-3 max-[899px]:bottom-[88px] max-[899px]:left-3 max-[899px]:z-45 max-[899px]:translate-y-0",
+        "min-[900px]:absolute min-[900px]:top-[76px] min-[900px]:right-4 min-[900px]:z-20 min-[900px]:w-[300px] min-[900px]:translate-x-0",
+        !mobilePanelVisible && "max-[899px]:translate-y-3 max-[899px]:opacity-0",
+        !rightSidebarVisible && "min-[900px]:translate-x-[18px] min-[900px]:opacity-0"
       )}
     >
       <div
@@ -576,8 +566,10 @@ export function PropertiesSidebar() {
       <motion.div
         className={cn(
           "pointer-events-auto overflow-hidden rounded-[var(--ds-radius-panel)]",
-          isMobileViewport ? "max-h-[min(60vh,520px)] w-full" : "w-[300px]",
-          !panelVisible && "pointer-events-none"
+          "max-[899px]:max-h-[min(60vh,520px)] max-[899px]:w-full",
+          "min-[900px]:w-[300px]",
+          !mobilePanelVisible && "max-[899px]:pointer-events-none",
+          !rightSidebarVisible && "min-[900px]:pointer-events-none"
         )}
         initial={false}
         {...(panelHeight === null ? {} : { animate: { height: panelHeight } })}
