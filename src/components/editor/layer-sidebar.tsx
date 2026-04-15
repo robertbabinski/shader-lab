@@ -5,7 +5,11 @@ import {
   EyeClosedIcon,
   EyeOpenIcon,
   FileIcon,
+  ImageIcon,
   LayoutIcon,
+  ShadowIcon,
+  TextIcon,
+  TransparencyGridIcon,
   TrashIcon,
 } from "@radix-ui/react-icons"
 import { Reorder, useDragControls } from "motion/react"
@@ -40,26 +44,41 @@ import type { AssetKind, EditorAsset, EditorLayer } from "@/types/editor"
 type LayerAction = "delete" | "reset"
 
 const thumbnailBaseClassName =
-  "relative h-7 w-7 overflow-hidden rounded-[var(--ds-radius-thumb)] border border-white/6 bg-[linear-gradient(135deg,rgb(255_255_255_/_0.07),rgb(255_255_255_/_0.03))]"
+  "relative size-7 overflow-hidden rounded-[var(--ds-radius-thumb)] border border-white/6"
 
-function getThumbnailClassName(
-  layer: EditorLayer,
+function LayerThumbnail({
+  asset,
+  layer,
+}: {
   asset: EditorAsset | null
-): string {
-  if (asset?.kind === "image" || asset?.kind === "video") {
-    return cn(thumbnailBaseClassName, "bg-center bg-cover")
+  layer: EditorLayer
+}) {
+  const hasPreview = asset?.kind === "image" || asset?.kind === "video"
+  let PlaceholderIcon = ImageIcon
+  if (layer.type === "pattern") {
+    PlaceholderIcon = TransparencyGridIcon
+  } else if (layer.type === "gradient") {
+    PlaceholderIcon = ShadowIcon
+  } else if (layer.type === "text") {
+    PlaceholderIcon = TextIcon
   }
 
-  if (layer.type === "model") {
-    return cn(
-      thumbnailBaseClassName,
-      "bg-[radial-gradient(circle_at_30%_30%,rgb(255_255_255_/_0.18),transparent_45%),linear-gradient(135deg,rgb(255_255_255_/_0.08),rgb(255_255_255_/_0.02))]"
-    )
-  }
-
-  return cn(
-    thumbnailBaseClassName,
-    "bg-[linear-gradient(135deg,rgb(255_255_255_/_0.1),rgb(255_255_255_/_0.03)),linear-gradient(180deg,rgb(255_255_255_/_0.05),transparent)] after:absolute after:inset-0 after:bg-[linear-gradient(90deg,transparent,rgb(255_255_255_/_0.18),transparent)] after:opacity-[0.35] after:content-['']"
+  return (
+    <div
+      className={cn(
+        thumbnailBaseClassName,
+        hasPreview
+          ? "bg-center bg-cover"
+          : "flex items-center justify-center bg-[var(--ds-color-surface-subtle)] text-[var(--ds-color-text-muted)]"
+      )}
+      style={
+        hasPreview ? { backgroundImage: `url("${asset.url}")` } : undefined
+      }
+    >
+      {hasPreview ? null : (
+        <PlaceholderIcon aria-hidden="true" height={14} width={14} />
+      )}
+    </div>
   )
 }
 
@@ -181,7 +200,7 @@ const LayerListItem = memo(function LayerListItem({
         <div className="grid min-w-0 grid-cols-[14px_minmax(0,1fr)] items-center gap-[var(--ds-space-2)]">
           <HoverTooltip content="Reorder" side="right">
             <button
-            aria-label={`Reorder ${layer.name}`}
+              aria-label={`Reorder ${layer.name}`}
               className={cn(
                 "inline-flex h-[14px] w-[14px] touch-none items-center justify-center bg-transparent p-0 text-[var(--ds-color-text-muted)]",
                 !layer.locked && "cursor-grab active:cursor-grabbing",
@@ -199,14 +218,7 @@ const LayerListItem = memo(function LayerListItem({
             onClick={(event) => onSelectLayer(layer.id, event)}
             type="button"
           >
-            <div
-              className={getThumbnailClassName(layer, asset)}
-              style={
-                asset?.kind === "image" || asset?.kind === "video"
-                  ? { backgroundImage: `url("${asset.url}")` }
-                  : undefined
-              }
-            />
+            <LayerThumbnail asset={asset} layer={layer} />
 
             <div className="flex min-w-0 min-h-7 items-center">
               <Typography
@@ -296,7 +308,7 @@ const LayerListItem = memo(function LayerListItem({
       <div className="grid min-w-0 grid-cols-[14px_minmax(0,1fr)] items-center gap-[var(--ds-space-2)]">
         <HoverTooltip content="Reorder" side="right">
           <button
-          aria-label={`Reorder ${layer.name}`}
+            aria-label={`Reorder ${layer.name}`}
             className={cn(
               "inline-flex h-[14px] w-[14px] touch-none items-center justify-center bg-transparent p-0 text-[var(--ds-color-text-muted)]",
               !layer.locked && "cursor-grab active:cursor-grabbing",
@@ -315,14 +327,7 @@ const LayerListItem = memo(function LayerListItem({
           onClick={(event) => onSelectLayer(layer.id, event)}
           type="button"
         >
-          <div
-            className={getThumbnailClassName(layer, asset)}
-            style={
-              asset?.kind === "image" || asset?.kind === "video"
-                ? { backgroundImage: `url("${asset.url}")` }
-                : undefined
-            }
-          />
+          <LayerThumbnail asset={asset} layer={layer} />
 
           <div className="flex min-w-0 min-h-7 items-center">
             <Typography
@@ -675,10 +680,10 @@ export function LayerSidebar() {
             </Typography>
             <div className="inline-flex items-center gap-1.5">
               <IconButton
-                aria-label="Enter immersive canvas mode"
+                aria-label="Hide UI (Cmd + .)"
                 className="pointer-events-auto"
                 onClick={enterImmersiveCanvas}
-                tooltip="Hide UI"
+                tooltip="Hide UI (Cmd + .)"
                 variant="ghost"
               >
                 <LayoutIcon height={14} width={14} />
@@ -758,10 +763,10 @@ export function LayerSidebar() {
                 </div>
                 <div className="inline-flex items-center gap-1.5">
                   <IconButton
-                    aria-label="Enter immersive canvas mode"
+                    aria-label="Hide UI (Cmd + .)"
                     className="pointer-events-auto"
                     onClick={enterImmersiveCanvas}
-                    tooltip="Hide UI"
+                    tooltip="Hide UI (Cmd + .)"
                     variant="ghost"
                   >
                     <LayoutIcon height={14} width={14} />
