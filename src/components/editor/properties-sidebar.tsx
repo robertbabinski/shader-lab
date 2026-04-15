@@ -626,7 +626,7 @@ export function PropertiesSidebar() {
               >
                 <div className="flex items-center justify-start border-b border-[var(--ds-border-divider)] px-3 py-1.5">
                   <IconButton
-                    aria-label="Move properties panel"
+                    aria-label="Drag"
                     className="h-7 w-7 cursor-grab text-[var(--ds-color-text-muted)] active:cursor-grabbing"
                     variant="ghost"
                     {...dragHandleProps}
