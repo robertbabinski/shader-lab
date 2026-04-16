@@ -218,7 +218,6 @@ export class PatternPass extends PassNode {
     if (nextBloomEnabled !== this.bloomEnabled) {
       this.bloomEnabled = nextBloomEnabled
       this.rebuildEffectNode()
-      return
     }
 
     if (this.bloomNode) {

@@ -7,7 +7,7 @@ import { CustomShaderPass } from "@/renderer/custom-shader-pass"
 import { GradientPass } from "@/renderer/gradient-pass"
 import { LivePass } from "@/renderer/live-pass"
 import { MediaPass } from "@/renderer/media-pass"
-import type { PassNode } from "@/renderer/pass-node"
+import { createPipelinePlaceholder, type PassNode } from "@/renderer/pass-node"
 import { createPassNode } from "@/renderer/pass-node-factory"
 import { ScenePostProcess } from "@/renderer/scene-post-process"
 import { TextPass } from "@/renderer/text-pass"
@@ -162,7 +162,7 @@ export class PipelineManager {
     this.blitScene = new THREE.Scene()
     this.blitCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
     const blitUv = vec2(uv().x, float(1).sub(uv().y))
-    this.blitInputNode = tslTexture(new THREE.Texture(), blitUv)
+    this.blitInputNode = tslTexture(createPipelinePlaceholder(), blitUv)
     this.blitMaterial = new THREE.MeshBasicNodeMaterial()
     this.blitMaterial.colorNode = this.blitInputNode
     const blitMesh = new THREE.Mesh(
@@ -340,6 +340,20 @@ export class PipelineManager {
 
   hasPendingMediaLoads(): boolean {
     return this.pendingMediaLoads.size > 0
+  }
+
+  hasPendingResources(): boolean {
+    if (this.pendingMediaLoads.size > 0 || this.compilingPasses.size > 0) {
+      return true
+    }
+
+    for (const pass of this.passMap.values()) {
+      if (pass.hasPendingResources()) {
+        return true
+      }
+    }
+
+    return false
   }
 
   async prepareForExportFrame(time: number, loop: boolean): Promise<void> {
