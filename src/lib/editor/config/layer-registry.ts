@@ -300,7 +300,7 @@ const inkParams = [
     defaultValue: 0.81,
     group: "Ink Bleed",
     key: "crispBlend",
-    label: "Text Clarity",
+    label: "Detail Blend",
     max: 1,
     min: 0,
     step: 0.01,
@@ -397,11 +397,26 @@ const inkParams = [
     type: "number",
   },
   {
+    defaultValue: "gradient",
+    group: "Colors",
+    key: "colorMode",
+    label: "Color Mode",
+    options: [
+      { label: "Gradient", value: "gradient" },
+      { label: "Source", value: "source" },
+    ],
+    type: "select",
+  },
+  {
     defaultValue: "#fffde8",
     group: "Glow Colors",
     key: "coreColor",
     label: "Core Color",
     type: "color",
+    visibleWhen: {
+      equals: "gradient",
+      key: "colorMode",
+    },
   },
   {
     defaultValue: "#FFA700",
@@ -409,6 +424,10 @@ const inkParams = [
     key: "midColor",
     label: "Mid Color",
     type: "color",
+    visibleWhen: {
+      equals: "gradient",
+      key: "colorMode",
+    },
   },
   {
     defaultValue: "#7192F1",
@@ -416,6 +435,10 @@ const inkParams = [
     key: "edgeColor",
     label: "Edge Color",
     type: "color",
+    visibleWhen: {
+      equals: "gradient",
+      key: "colorMode",
+    },
   },
   {
     defaultValue: "#000000",
@@ -513,6 +536,69 @@ const inkParams = [
       equals: true,
       key: "bloomEnabled",
     },
+  },
+] as const satisfies ParameterDefinitions
+
+const bloomParams = [
+  {
+    defaultValue: 1.25,
+    group: "Bloom",
+    key: "bloomIntensity",
+    label: "Intensity",
+    max: 8,
+    min: 0,
+    step: 0.01,
+    type: "number",
+  },
+  {
+    defaultValue: 0.6,
+    group: "Bloom",
+    key: "bloomThreshold",
+    label: "Threshold",
+    max: 1,
+    min: 0,
+    step: 0.01,
+    type: "number",
+  },
+  {
+    defaultValue: 6,
+    group: "Bloom",
+    key: "bloomRadius",
+    label: "Radius",
+    max: 24,
+    min: 0,
+    step: 0.25,
+    type: "number",
+  },
+  {
+    defaultValue: 0.35,
+    group: "Bloom",
+    key: "bloomSoftness",
+    label: "Softness",
+    max: 1,
+    min: 0,
+    step: 0.01,
+    type: "number",
+  },
+  {
+    defaultValue: 0.2,
+    group: "Highlight",
+    key: "bloomKnee",
+    label: "Knee",
+    max: 0.5,
+    min: 0,
+    step: 0.01,
+    type: "number",
+  },
+  {
+    defaultValue: 1.5,
+    group: "Highlight",
+    key: "highlightDrive",
+    label: "Highlight Drive",
+    max: 4,
+    min: 1,
+    step: 0.01,
+    type: "number",
   },
 ] as const satisfies ParameterDefinitions
 
@@ -713,7 +799,7 @@ const gradientParams = [
     },
   },
   {
-    defaultValue: "simplex",
+    defaultValue: "ridge",
     group: "Distortion",
     key: "noiseType",
     label: "Noise",
@@ -728,7 +814,7 @@ const gradientParams = [
     type: "select",
   },
   {
-    defaultValue: 0,
+    defaultValue: 70.3,
     group: "Distortion",
     key: "noiseSeed",
     label: "Seed",
@@ -738,7 +824,7 @@ const gradientParams = [
     type: "number",
   },
   {
-    defaultValue: 0.64,
+    defaultValue: 0.18,
     group: "Distortion",
     key: "warpAmount",
     label: "Warp Amount",
@@ -748,7 +834,7 @@ const gradientParams = [
     type: "number",
   },
   {
-    defaultValue: 5.56,
+    defaultValue: 2.35,
     group: "Distortion",
     key: "warpScale",
     label: "Warp Scale",
@@ -805,7 +891,7 @@ const gradientParams = [
     type: "boolean",
   },
   {
-    defaultValue: 0,
+    defaultValue: 1,
     group: "Animation",
     key: "motionAmount",
     label: "Motion Amount",
@@ -815,7 +901,7 @@ const gradientParams = [
     type: "number",
   },
   {
-    defaultValue: 0.2,
+    defaultValue: 0.4,
     group: "Animation",
     key: "motionSpeed",
     label: "Motion Speed",
@@ -839,7 +925,7 @@ const gradientParams = [
     type: "number",
   },
   {
-    defaultValue: "reinhard",
+    defaultValue: "cinematic",
     group: "Finish",
     key: "tonemapMode",
     label: "Tonemap",
@@ -3156,6 +3242,12 @@ const layerDefinitions: Record<LayerType, LayerDefinition> = {
     kind: "effect",
     params: asciiParams,
     type: "ascii",
+  },
+  bloom: {
+    defaultName: "Bloom",
+    kind: "effect",
+    params: bloomParams,
+    type: "bloom",
   },
   "circuit-bent": {
     defaultName: "Circuit Bent",
