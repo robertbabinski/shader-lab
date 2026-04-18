@@ -49,10 +49,15 @@ export class DitheringPass extends PassNode {
   private readonly highlightGreenUniform: Node
   private readonly highlightRedUniform: Node
   private readonly levelsUniform: Node
-  private readonly logicalHeightUniform: Node
-  private readonly logicalWidthUniform: Node
+  private readonly outputHeightUniform: Node
+  private readonly outputWidthUniform: Node
+  private readonly effectivePixelSizeUniform: Node
   private readonly matrixSizeUniform: Node
-  private readonly pixelSizeUniform: Node
+
+  private logicalWidth = 1
+  private outputWidth = 1
+  private outputHeight = 1
+  private pixelSize = 1
   private readonly shadowBlueUniform: Node
   private readonly shadowGreenUniform: Node
   private readonly shadowRedUniform: Node
@@ -79,10 +84,10 @@ export class DitheringPass extends PassNode {
     this.placeholder = new THREE.Texture()
     this.currentTexture = this.textures.bayer4
     this.levelsUniform = uniform(4)
-    this.logicalWidthUniform = uniform(1)
-    this.logicalHeightUniform = uniform(1)
+    this.outputWidthUniform = uniform(1)
+    this.outputHeightUniform = uniform(1)
+    this.effectivePixelSizeUniform = uniform(1)
     this.matrixSizeUniform = uniform(4)
-    this.pixelSizeUniform = uniform(1)
     this.spreadUniform = uniform(0.5)
     this.colorRedUniform = uniform(0.96)
     this.colorGreenUniform = uniform(0.96)
@@ -164,8 +169,9 @@ export class DitheringPass extends PassNode {
     this.highlightBlueUniform.value = highlightBlue
     this.levelsUniform.value =
       typeof params.levels === "number" ? Math.max(2, params.levels) : 4
-    this.pixelSizeUniform.value =
+    this.pixelSize =
       typeof params.pixelSize === "number" ? Math.max(1, Math.round(params.pixelSize)) : 1
+    this.recomputeEffectivePixelSize()
     this.spreadUniform.value =
       typeof params.spread === "number"
         ? Math.max(0, Math.min(1, params.spread))
@@ -214,9 +220,26 @@ export class DitheringPass extends PassNode {
     super.dispose()
   }
 
-  override updateLogicalSize(width: number, height: number): void {
-    this.logicalWidthUniform.value = Math.max(1, width)
-    this.logicalHeightUniform.value = Math.max(1, height)
+  override updateLogicalSize(width: number, _height: number): void {
+    this.logicalWidth = Math.max(1, width)
+    this.recomputeEffectivePixelSize()
+  }
+
+  override resize(width: number, height: number): void {
+    this.outputWidth = Math.max(1, width)
+    this.outputHeight = Math.max(1, height)
+    this.outputWidthUniform.value = this.outputWidth
+    this.outputHeightUniform.value = this.outputHeight
+    this.recomputeEffectivePixelSize()
+  }
+
+  private recomputeEffectivePixelSize(): void {
+    // pixelSize is specified in composition (logical) units. Scale it to
+    // render pixels so the dither grid aligns with integer output pixels,
+    // which avoids moiré/banding when logicalSize ≠ outputSize (export).
+    const scale = this.outputWidth / Math.max(1, this.logicalWidth)
+    const effective = Math.max(1, Math.round(this.pixelSize * scale))
+    this.effectivePixelSizeUniform.value = effective
   }
 
   protected override buildEffectNode(): Node {
@@ -224,21 +247,14 @@ export class DitheringPass extends PassNode {
       return this.inputNode
     }
 
-    const pixelSize = max(this.pixelSizeUniform, float(1))
     const renderTargetUv = vec2(uv().x, float(1).sub(uv().y))
-    const logicalWidth = max(this.logicalWidthUniform.div(pixelSize), float(1))
-    const logicalHeight = max(this.logicalHeightUniform.div(pixelSize), float(1))
-    const logicalDims = vec2(logicalWidth, logicalHeight)
-
-    // Cell grid
-    const cellCoordinates = vec2(
-      floor(renderTargetUv.x.mul(logicalWidth)),
-      floor(renderTargetUv.y.mul(logicalHeight)),
-    )
-    const snappedUv = vec2(
-      cellCoordinates.x.add(0.5).div(logicalWidth),
-      cellCoordinates.y.add(0.5).div(logicalHeight),
-    )
+    const outputDims = vec2(this.outputWidthUniform, this.outputHeightUniform)
+    const effectivePx = max(this.effectivePixelSizeUniform, float(1))
+    // fragCoord in render-pixel space — grid is anchored here so cells always
+    // span an integer number of output pixels (no moiré on non-integer scales).
+    const fragCoord = renderTargetUv.mul(outputDims)
+    const cellCoordinates = floor(fragCoord.div(effectivePx))
+    const snappedUv = cellCoordinates.add(vec2(0.5, 0.5)).mul(effectivePx).div(outputDims)
 
     // Animated Dither: shift ditherUv by time * speed when animate is on
     const timeOffset = this.timeUniform.mul(this.ditherSpeedUniform).mul(this.animateDitherUniform)
@@ -311,7 +327,7 @@ export class DitheringPass extends PassNode {
     }
 
     // Dot Scale: mask within each cell (square shape only)
-    const cellFrac = fract(renderTargetUv.mul(logicalDims))
+    const cellFrac = fract(fragCoord.div(effectivePx))
     const centered = cellFrac.sub(vec2(0.5, 0.5))
     const dist = max(abs(centered.x), abs(centered.y))
     const halfSize = float(0.5).mul(this.dotScaleUniform)
